@@ -1,0 +1,2 @@
+-r ../shared/requirements.txt
+sse-starlette==1.8.2

@@ -1,0 +1,203 @@
+services:
+  # PostgreSQL Database with pgvector (shared by all services + n8n)
+  postgres:
+    image: pgvector/pgvector:pg17
+    restart: always
+    container_name: hacksters-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./volumes/pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - cloudcare_network
+
+  # Redis for n8n queue management
+  redis:
+    image: redis:latest
+    restart: always
+    container_name: hacksters-redis
+    command: redis-server --requirepass ${REDIS_PASSWORD}
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./volumes/redisdata:/data
+    networks:
+      - cloudcare_network
+
+  # n8n Workflow Automation
+  n8n:
+    image: n8nio/n8n:latest
+    restart: always
+    container_name: hacksters
+    depends_on:
+      - postgres
+      - redis
+    ports:
+      - "5678:5678"
+    env_file:
+      - .env
+    environment:
+      DB_TYPE: postgres
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_DATABASE: ${POSTGRES_DB}
+      DB_POSTGRESDB_USER: ${POSTGRES_USER}
+      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD}
+      N8N_BASIC_AUTH_ACTIVE: "true"
+      N8N_BASIC_AUTH_USER: ${N8N_BASIC_AUTH_USER}
+      N8N_BASIC_AUTH_PASSWORD: ${N8N_BASIC_AUTH_PASSWORD}
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+      EXECUTIONS_MODE: queue
+      QUEUE_BULL_REDIS_HOST: redis
+      QUEUE_BULL_REDIS_PORT: 6379
+      QUEUE_BULL_REDIS_PASSWORD: ${REDIS_PASSWORD}
+      N8N_RUNNERS_ENABLED: "true"
+      OFFLOAD_MANUAL_EXECUTIONS_TO_WORKERS: "true"
+      N8N_EDITOR_BASE_URL: ${N8N_BASE_URL}
+      WEBHOOK_URL: ${N8N_BASE_URL}
+      N8N_SECURE_COOKIE: "false"
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
+    volumes:
+      - ./volumes/.n8n:/home/node/.n8n
+    networks:
+      - cloudcare_network
+
+  # n8n Worker for background job processing
+  n8n-worker:
+    image: n8nio/n8n:latest
+    restart: always
+    container_name: hacksters-worker
+    depends_on:
+      - redis
+      - postgres
+    env_file:
+      - .env
+    environment:
+      EXECUTIONS_MODE: queue
+      DB_TYPE: postgres
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_DATABASE: ${POSTGRES_DB}
+      DB_POSTGRESDB_USER: ${POSTGRES_USER}
+      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD}
+      QUEUE_BULL_REDIS_HOST: redis
+      QUEUE_BULL_REDIS_PORT: 6379
+      QUEUE_BULL_REDIS_PASSWORD: ${REDIS_PASSWORD}
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+      N8N_RUNNERS_ENABLED: "true"
+    volumes:
+      - ./volumes/.worker:/home/node/.n8n
+    command: worker
+    networks:
+      - cloudcare_network
+
+  # Patient API Server
+  patient-api:
+    build:
+      context: .
+      dockerfile: ./patient-api/Dockerfile
+    container_name: cloudcare_patient_api
+    ports:
+      - "8001:8001"
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      - PATIENT_API_PORT=8001
+      - ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173,http://localhost:5678
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - cloudcare_network
+    restart: unless-stopped
+
+  # Doctor API Server
+  doctor-api:
+    build:
+      context: .
+      dockerfile: ./doctor-api/Dockerfile
+    container_name: cloudcare_doctor_api
+    ports:
+      - "8002:8002"
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      - DOCTOR_API_PORT=8002
+      - ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173,http://localhost:5678
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - cloudcare_network
+    restart: unless-stopped
+
+  # Hospital API Server
+  hospital-api:
+    build:
+      context: .
+      dockerfile: ./hospital-api/Dockerfile
+    container_name: cloudcare_hospital_api
+    ports:
+      - "8003:8003"
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      - HOSPITAL_API_PORT=8003
+      - ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173,http://localhost:5678
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - cloudcare_network
+    restart: unless-stopped
+
+  # Emergency API Server (with SSE)
+  emergency-api:
+    build:
+      context: .
+      dockerfile: ./emergency-api/Dockerfile
+    container_name: cloudcare_emergency_api
+    ports:
+      - "8004:8004"
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      - EMERGENCY_API_PORT=8004
+      - ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173,http://localhost:5678
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - cloudcare_network
+    restart: unless-stopped
+
+  # Wearables API Server
+  wearables-api:
+    build:
+      context: .
+      dockerfile: ./wearables-api/Dockerfile
+    container_name: cloudcare_wearables_api
+    ports:
+      - "8005:8005"
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      - WEARABLES_API_PORT=8005
+      - ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173,http://localhost:5678
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - cloudcare_network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+
+networks:
+  cloudcare_network:
+    driver: bridge

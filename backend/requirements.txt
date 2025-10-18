@@ -1,0 +1,6 @@
+# Root requirements for entire CloudCare project
+# Install shared dependencies
+-r shared/requirements.txt
+
+# Additional server-specific dependencies
+sse-starlette==1.8.2  # For Emergency API SSE

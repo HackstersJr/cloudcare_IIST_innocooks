@@ -1,0 +1,110 @@
+// =============================================================================
+// CLOUDCARE - SIMPLIFIED DATABASE SCHEMA
+// 5 FastAPI Servers: Patient, Doctor, Hospital, Emergency, Wearables
+// =============================================================================
+
+generator client {
+  provider             = "prisma-client-py"
+  recursive_type_depth = 5
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =============================================================================
+// SIMPLIFIED MODELS
+// =============================================================================
+
+model Patient {
+  id              Int        @id @default(autoincrement())
+  name            String
+  age             Int
+  gender          String
+  contact         String
+  familyContact   String
+  emergency       Boolean    @default(false)
+  aiAnalysis      String?    
+
+  records         Record[]
+  prescriptions   Prescription[]
+  conditions      PatientCondition[]
+  doctors         Doctor[]   @relation("PatientDoctors")
+  hospitals       Hospital[] @relation("PatientHospitals")
+  wearablesData   WearableData[]
+  userLogin       UserLogin? @relation(fields: [userLoginId], references: [id])
+  userLoginId     Int? 
+}
+
+model Doctor {
+  id              Int       @id @default(autoincrement())
+  name            String
+  age             Int
+  gender          String
+  contact         String
+  specializations String
+  patients        Patient[] @relation("PatientDoctors")
+  hospital        Hospital? @relation(fields: [hospitalId], references: [id])
+  hospitalId      Int?
+  userLogin       UserLogin? @relation(fields: [userLoginId], references: [id])
+  userLoginId     Int? 
+}
+
+model Hospital {
+  id       Int       @id @default(autoincrement())
+  name     String    @unique
+  doctors  Doctor[]
+  patients Patient[] @relation("PatientHospitals")
+}
+
+model Record {
+  id           Int      @id @default(autoincrement())
+  patient      Patient  @relation(fields: [patientId], references: [id])
+  patientId    Int
+  description  String
+  date         DateTime
+  wearablesData WearableData[]
+}
+
+model Prescription {
+  id         Int       @id @default(autoincrement())
+  patient    Patient   @relation(fields: [patientId], references: [id])
+  patientId  Int
+  medication String
+  dosage     String
+  startDate  DateTime
+  endDate    DateTime?
+}
+
+model PatientCondition {
+  id         Int      @id @default(autoincrement())
+  patient    Patient  @relation(fields: [patientId], references: [id])
+  patientId  Int
+  condition  String
+  startDate  DateTime
+  endDate    DateTime?
+}
+
+model WearableData {
+  id          Int       @id @default(autoincrement())
+  patient     Patient   @relation(fields: [patientId], references: [id])
+  patientId   Int
+  record      Record?   @relation(fields: [recordId], references: [id])
+  recordId    Int?
+  timestamp   DateTime
+  heartRate   Int?
+  steps       Int?
+  sleepHours  Float?
+  oxygenLevel Float?
+  description String?
+}
+
+model UserLogin {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String
+  // Polymorphic relation
+  patients  Patient[]
+  doctors   Doctor[]
+}
