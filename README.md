@@ -86,7 +86,7 @@ docker-compose ps        ┌───────▼───────┐
 
 | Emergency API | http://localhost:8004 | http://localhost:8004/docs |
 
-| Wearables API | http://localhost:8005 | http://localhost:8005/docs |The database is normalized to 3NF with the following entity relationships:
+| Wearables API | http://172.20.162.213:8005 | http://172.20.162.213:8005/docs |The database is normalized to 3NF with the following entity relationships:
 
 | N8N Automation | http://localhost:5678 | - |
 
