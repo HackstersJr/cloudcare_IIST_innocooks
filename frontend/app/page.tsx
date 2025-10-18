@@ -64,6 +64,21 @@ export default function Home() {
             </Button>
             
             <Button
+              variant="contained"
+              size="large"
+              fullWidth
+              onClick={() => router.push('/doctor-login')}
+              sx={{
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #5568d3 0%, #6a3f8f 100%)',
+                },
+              }}
+            >
+              Doctor Login
+            </Button>
+            
+            <Button
               variant="outlined"
               size="large"
               fullWidth
