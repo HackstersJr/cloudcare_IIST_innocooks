@@ -39,6 +39,10 @@ export default function DoctorLoginPage() {
     formState: { errors },
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: 'dr.smith@hospital.com',
+      password: 'doctor123',
+    },
   });
 
   const onSubmit = async (data: LoginFormData) => {
