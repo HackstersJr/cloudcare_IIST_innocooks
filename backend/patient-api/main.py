@@ -16,14 +16,15 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from shared.database import connect_db, disconnect_db, get_prisma
 from shared.models import (
     PatientCreate,
+    PatientUpdate,
     PatientResponse,
     BaseResponse,
-    ErrorResponse,
-    FamilyContactCreate
+    RecordResponse,
+    PrescriptionResponse,
+    PatientConditionResponse
 )
 from prisma import Prisma
 from typing import List, Optional
-from datetime import datetime
 
 
 @asynccontextmanager
@@ -71,56 +72,22 @@ async def create_patient(
     patient: PatientCreate,
     db: Prisma = Depends(get_prisma)
 ):
-    """
-    Create a new patient record
-    """
+    """Create a new patient record"""
     try:
-        # Check if patient ID already exists
-        existing = await db.patient.find_unique(
-            where={"patientId": patient.patient_id}
-        )
-        if existing:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Patient with ID {patient.patient_id} already exists"
-            )
-        
-        # Create patient
         new_patient = await db.patient.create(
             data={
-                "patientId": patient.patient_id,
                 "name": patient.name,
                 "age": patient.age,
-                "dateOfBirth": patient.date_of_birth,
-                "gender": patient.gender.value,
+                "gender": patient.gender,
                 "contact": patient.contact,
-                "email": patient.email,
-                "address": patient.address,
-                "bloodType": patient.blood_type.value if patient.blood_type else None,
-                "allergies": patient.allergies,
-                "chronicConditions": patient.chronic_conditions,
+                "familyContact": patient.familyContact or patient.contact,
+                "emergency": patient.emergency,
+                "aiAnalysis": patient.aiAnalysis
             }
         )
         
-        # Create family contacts
-        if patient.family_contacts:
-            for fc in patient.family_contacts:
-                await db.familycontact.create(
-                    data={
-                        "patientId": new_patient.id,
-                        "name": fc.name,
-                        "relationship": fc.relationship,
-                        "contact": fc.contact,
-                        "email": fc.email,
-                        "isPrimary": fc.is_primary,
-                        "isEmergencyContact": fc.is_emergency_contact,
-                    }
-                )
-        
         return new_patient
     
-    except HTTPException:
-        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -130,15 +97,11 @@ async def create_patient(
 
 @app.get("/api/patients/{patient_id}", response_model=PatientResponse)
 async def get_patient(
-    patient_id: str,
+    patient_id: int,
     db: Prisma = Depends(get_prisma)
 ):
-    """
-    Get patient by patient ID
-    """
-    patient = await db.patient.find_unique(
-        where={"patientId": patient_id}
-    )
+    """Get patient by ID"""
+    patient = await db.patient.find_unique(where={"id": patient_id})
     
     if not patient:
         raise HTTPException(
@@ -156,18 +119,16 @@ async def list_patients(
     emergency_only: bool = False,
     db: Prisma = Depends(get_prisma)
 ):
-    """
-    List all patients with pagination
-    """
+    """List all patients with pagination"""
     where_clause = {}
     if emergency_only:
-        where_clause["emergencyFlag"] = True
-    
+        where_clause["emergency"] = True
+
     patients = await db.patient.find_many(
         where=where_clause,
         skip=skip,
         take=limit,
-        order={"createdAt": "desc"}
+        order={"id": "desc"}
     )
     
     return patients
@@ -175,16 +136,12 @@ async def list_patients(
 
 @app.put("/api/patients/{patient_id}", response_model=PatientResponse)
 async def update_patient(
-    patient_id: str,
-    patient_data: dict,
+    patient_id: int,
+    patient_data: PatientUpdate,
     db: Prisma = Depends(get_prisma)
 ):
-    """
-    Update patient information
-    """
-    existing = await db.patient.find_unique(
-        where={"patientId": patient_id}
-    )
+    """Update patient information"""
+    existing = await db.patient.find_unique(where={"id": patient_id})
     
     if not existing:
         raise HTTPException(
@@ -193,9 +150,12 @@ async def update_patient(
         )
     
     try:
+        # Build update data dict with only provided fields
+        update_data = {k: v for k, v in patient_data.dict(exclude_unset=True).items()}
+        
         updated_patient = await db.patient.update(
-            where={"patientId": patient_id},
-            data=patient_data
+            where={"id": patient_id},
+            data=update_data
         )
         return updated_patient
     except Exception as e:
@@ -207,15 +167,11 @@ async def update_patient(
 
 @app.delete("/api/patients/{patient_id}", response_model=BaseResponse)
 async def delete_patient(
-    patient_id: str,
+    patient_id: int,
     db: Prisma = Depends(get_prisma)
 ):
-    """
-    Soft delete a patient (set isActive to False)
-    """
-    existing = await db.patient.find_unique(
-        where={"patientId": patient_id}
-    )
+    """Delete a patient"""
+    existing = await db.patient.find_unique(where={"id": patient_id})
     
     if not existing:
         raise HTTPException(
@@ -223,115 +179,50 @@ async def delete_patient(
             detail=f"Patient {patient_id} not found"
         )
     
-    await db.patient.update(
-        where={"patientId": patient_id},
-        data={"isActive": False}
-    )
+    await db.patient.delete(where={"id": patient_id})
     
     return BaseResponse(
         success=True,
-        message=f"Patient {patient_id} deactivated successfully"
+        message=f"Patient {patient_id} deleted successfully"
     )
-
-
-# ============================================================================
-# FAMILY CONTACTS ENDPOINTS
-# ============================================================================
-
-@app.get("/api/patients/{patient_id}/family-contacts")
-async def get_family_contacts(
-    patient_id: str,
-    db: Prisma = Depends(get_prisma)
-):
-    """
-    Get all family contacts for a patient
-    """
-    patient = await db.patient.find_unique(
-        where={"patientId": patient_id},
-        include={"familyContacts": True}
-    )
-    
-    if not patient:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Patient {patient_id} not found"
-        )
-    
-    return patient.familyContacts
-
-
-@app.post("/api/patients/{patient_id}/family-contacts")
-async def add_family_contact(
-    patient_id: str,
-    contact: FamilyContactCreate,
-    db: Prisma = Depends(get_prisma)
-):
-    """
-    Add a family contact for a patient
-    """
-    patient = await db.patient.find_unique(
-        where={"patientId": patient_id}
-    )
-    
-    if not patient:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Patient {patient_id} not found"
-        )
-    
-    new_contact = await db.familycontact.create(
-        data={
-            "patientId": patient.id,
-            "name": contact.name,
-            "relationship": contact.relationship,
-            "contact": contact.contact,
-            "email": contact.email,
-            "isPrimary": contact.is_primary,
-            "isEmergencyContact": contact.is_emergency_contact,
-        }
-    )
-    
-    return new_contact
 
 
 # ============================================================================
 # PATIENT CONDITIONS ENDPOINTS
 # ============================================================================
 
-@app.get("/api/patients/{patient_id}/conditions")
+@app.get("/api/patients/{patient_id}/conditions", response_model=List[PatientConditionResponse])
 async def get_patient_conditions(
-    patient_id: str,
+    patient_id: int,
     db: Prisma = Depends(get_prisma)
 ):
-    """
-    Get all conditions for a patient
-    """
-    patient = await db.patient.find_unique(
+    """Get all conditions for a patient"""
+    patient = await db.patient.find_unique(where={"id": patient_id})
+    
+    if not patient:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Patient {patient_id} not found"
+        )
+    
+    conditions = await db.patientcondition.find_many(
         where={"patientId": patient_id},
-        include={"patientConditions": True}
+        order={"startDate": "desc"}
     )
     
-    if not patient:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Patient {patient_id} not found"
-        )
-    
-    return patient.patientConditions
+    return conditions
 
 
-@app.post("/api/patients/{patient_id}/conditions")
+@app.post("/api/patients/{patient_id}/conditions", response_model=PatientConditionResponse)
 async def add_patient_condition(
-    patient_id: str,
-    condition_data: dict,
+    patient_id: int,
+    condition: str,
+    startDate: str,
+    endDate: Optional[str] = None,
     db: Prisma = Depends(get_prisma)
 ):
-    """
-    Add a condition for a patient
-    """
-    patient = await db.patient.find_unique(
-        where={"patientId": patient_id}
-    )
+    """Add a condition for a patient"""
+    patient = await db.patient.find_unique(where={"id": patient_id})
     
     if not patient:
         raise HTTPException(
@@ -339,40 +230,31 @@ async def add_patient_condition(
             detail=f"Patient {patient_id} not found"
         )
     
-    condition = await db.patientcondition.create(
+    from datetime import datetime
+    
+    new_condition = await db.patientcondition.create(
         data={
-            "patientId": patient.id,
-            **condition_data
+            "patientId": patient_id,
+            "condition": condition,
+            "startDate": datetime.fromisoformat(startDate),
+            "endDate": datetime.fromisoformat(endDate) if endDate else None
         }
     )
     
-    return condition
+    return new_condition
 
 
 # ============================================================================
 # MEDICAL RECORDS ENDPOINTS
 # ============================================================================
 
-@app.get("/api/patients/{patient_id}/records")
+@app.get("/api/patients/{patient_id}/records", response_model=List[RecordResponse])
 async def get_patient_records(
-    patient_id: str,
+    patient_id: int,
     db: Prisma = Depends(get_prisma)
 ):
-    """
-    Get all medical records for a patient
-    """
-    patient = await db.patient.find_unique(
-        where={"patientId": patient_id},
-        include={
-            "medicalRecords": {
-                "include": {
-                    "doctor": True,
-                    "hospital": True
-                },
-                "order": {"visitDate": "desc"}
-            }
-        }
-    )
+    """Get all medical records for a patient"""
+    patient = await db.patient.find_unique(where={"id": patient_id})
     
     if not patient:
         raise HTTPException(
@@ -380,25 +262,115 @@ async def get_patient_records(
             detail=f"Patient {patient_id} not found"
         )
     
-    return patient.medicalRecords
+    records = await db.record.find_many(
+        where={"patientId": patient_id},
+        order={"date": "desc"}
+    )
+    
+    return records
+
+
+@app.post("/api/patients/{patient_id}/records", response_model=RecordResponse)
+async def create_patient_record(
+    patient_id: int,
+    description: str,
+    date: str,
+    db: Prisma = Depends(get_prisma)
+):
+    """Create a new medical record for a patient"""
+    patient = await db.patient.find_unique(where={"id": patient_id})
+    
+    if not patient:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Patient {patient_id} not found"
+        )
+    
+    from datetime import datetime
+    
+    new_record = await db.record.create(
+        data={
+            "patientId": patient_id,
+            "description": description,
+            "date": datetime.fromisoformat(date)
+        }
+    )
+    
+    return new_record
+
+
+# ============================================================================
+# PRESCRIPTIONS ENDPOINTS
+# ============================================================================
+
+@app.get("/api/patients/{patient_id}/prescriptions", response_model=List[PrescriptionResponse])
+async def get_patient_prescriptions(
+    patient_id: int,
+    db: Prisma = Depends(get_prisma)
+):
+    """Get all prescriptions for a patient"""
+    patient = await db.patient.find_unique(where={"id": patient_id})
+    
+    if not patient:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Patient {patient_id} not found"
+        )
+    
+    prescriptions = await db.prescription.find_many(
+        where={"patientId": patient_id},
+        order={"startDate": "desc"}
+    )
+    
+    return prescriptions
+
+
+@app.post("/api/patients/{patient_id}/prescriptions", response_model=PrescriptionResponse)
+async def create_prescription(
+    patient_id: int,
+    medication: str,
+    dosage: str,
+    startDate: str,
+    endDate: Optional[str] = None,
+    db: Prisma = Depends(get_prisma)
+):
+    """Create a new prescription for a patient"""
+    patient = await db.patient.find_unique(where={"id": patient_id})
+    
+    if not patient:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Patient {patient_id} not found"
+        )
+    
+    from datetime import datetime
+    
+    new_prescription = await db.prescription.create(
+        data={
+            "patientId": patient_id,
+            "medication": medication,
+            "dosage": dosage,
+            "startDate": datetime.fromisoformat(startDate),
+            "endDate": datetime.fromisoformat(endDate) if endDate else None
+        }
+    )
+    
+    return new_prescription
 
 
 # ============================================================================
 # EMERGENCY FLAG ENDPOINTS
 # ============================================================================
 
-@app.post("/api/patients/{patient_id}/emergency")
+@app.post("/api/patients/{patient_id}/emergency", response_model=PatientResponse)
 async def set_emergency_flag(
-    patient_id: str,
-    emergency_data: dict,
+    patient_id: int,
+    emergency: bool = True,
+    aiAnalysis: Optional[str] = None,
     db: Prisma = Depends(get_prisma)
 ):
-    """
-    Set emergency flag for a patient
-    """
-    patient = await db.patient.find_unique(
-        where={"patientId": patient_id}
-    )
+    """Set emergency flag for a patient"""
+    patient = await db.patient.find_unique(where={"id": patient_id})
     
     if not patient:
         raise HTTPException(
@@ -407,27 +379,57 @@ async def set_emergency_flag(
         )
     
     updated = await db.patient.update(
-        where={"patientId": patient_id},
+        where={"id": patient_id},
         data={
-            "emergencyFlag": True,
-            "emergencyType": emergency_data.get("emergency_type"),
-            "emergencyNotes": emergency_data.get("emergency_notes")
+            "emergency": emergency,
+            "aiAnalysis": aiAnalysis
         }
     )
     
     return updated
 
 
-@app.delete("/api/patients/{patient_id}/emergency")
+@app.delete("/api/patients/{patient_id}/emergency", response_model=BaseResponse)
 async def clear_emergency_flag(
-    patient_id: str,
+    patient_id: int,
     db: Prisma = Depends(get_prisma)
 ):
-    """
-    Clear emergency flag for a patient
-    """
+    """Clear emergency flag for a patient"""
+    patient = await db.patient.find_unique(where={"id": patient_id})
+    
+    if not patient:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Patient {patient_id} not found"
+        )
+    
+    await db.patient.update(
+        where={"id": patient_id},
+        data={
+            "emergency": False,
+            "aiAnalysis": None
+        }
+    )
+    
+    return BaseResponse(
+        success=True,
+        message="Emergency flag cleared"
+    )
+
+
+# ============================================================================
+# PATIENT-DOCTOR RELATIONSHIPS
+# ============================================================================
+
+@app.get("/api/patients/{patient_id}/doctors")
+async def get_patient_doctors(
+    patient_id: int,
+    db: Prisma = Depends(get_prisma)
+):
+    """Get all doctors assigned to a patient"""
     patient = await db.patient.find_unique(
-        where={"patientId": patient_id}
+        where={"id": patient_id},
+        include={"doctors": True}
     )
     
     if not patient:
@@ -436,18 +438,37 @@ async def clear_emergency_flag(
             detail=f"Patient {patient_id} not found"
         )
     
-    updated = await db.patient.update(
-        where={"patientId": patient_id},
+    return patient.doctors
+
+
+@app.post("/api/patients/{patient_id}/doctors/{doctor_id}", response_model=BaseResponse)
+async def assign_doctor_to_patient(
+    patient_id: int,
+    doctor_id: int,
+    db: Prisma = Depends(get_prisma)
+):
+    """Assign a doctor to a patient"""
+    patient = await db.patient.find_unique(where={"id": patient_id})
+    doctor = await db.doctor.find_unique(where={"id": doctor_id})
+    
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+    if not doctor:
+        raise HTTPException(status_code=404, detail="Doctor not found")
+    
+    # Connect doctor to patient
+    await db.patient.update(
+        where={"id": patient_id},
         data={
-            "emergencyFlag": False,
-            "emergencyType": None,
-            "emergencyNotes": None
+            "doctors": {
+                "connect": {"id": doctor_id}
+            }
         }
     )
     
     return BaseResponse(
         success=True,
-        message="Emergency flag cleared"
+        message=f"Doctor {doctor_id} assigned to patient {patient_id}"
     )
 
 

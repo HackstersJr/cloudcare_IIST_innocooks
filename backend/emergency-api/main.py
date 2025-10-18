@@ -13,7 +13,7 @@ import sys
 import os
 import asyncio
 import json
-from typing import AsyncGenerator, List
+from typing import AsyncGenerator, List, Optional
 from datetime import datetime
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

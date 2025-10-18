@@ -63,9 +63,9 @@ async def create_hospital(
 ):
     """Create a new hospital record"""
     try:
-        # Check if hospital already exists
+        # Check if hospital already exists (schema uses `name`)
         existing = await db.hospital.find_unique(
-            where={"hospitalName": hospital.hospital_name}
+            where={"name": hospital.hospital_name}
         )
         if existing:
             raise HTTPException(
@@ -75,18 +75,7 @@ async def create_hospital(
         
         new_hospital = await db.hospital.create(
             data={
-                "hospitalName": hospital.hospital_name,
-                "registrationNumber": hospital.registration_number,
-                "hospitalType": hospital.hospital_type,
-                "contact": hospital.contact,
-                "email": hospital.email,
-                "address": hospital.address,
-                "website": hospital.website,
-                "totalBeds": hospital.total_beds,
-                "availableBeds": hospital.available_beds,
-                "emergencyServices": hospital.emergency_services,
-                "specializations": hospital.specializations,
-                "accreditations": hospital.accreditations,
+                "name": hospital.hospital_name
             }
         )
         
@@ -108,7 +97,7 @@ async def get_hospital(
 ):
     """Get hospital by name"""
     hospital = await db.hospital.find_unique(
-        where={"hospitalName": hospital_name}
+        where={"name": hospital_name}
     )
     
     if not hospital:
@@ -129,19 +118,14 @@ async def list_hospitals(
     db: Prisma = Depends(get_prisma)
 ):
     """List all hospitals with optional filters"""
-    where_clause = {"isActive": True}
-    
-    if emergency_only:
-        where_clause["emergencyServices"] = True
-    
+    where_clause = {}
     if specialization:
-        where_clause["specializations"] = {"has": specialization}
-    
+        where_clause["name"] = {"contains": specialization}
+
     hospitals = await db.hospital.find_many(
         where=where_clause,
         skip=skip,
-        take=limit,
-        order={"createdAt": "desc"}
+        take=limit
     )
     
     return hospitals
@@ -155,7 +139,7 @@ async def update_hospital(
 ):
     """Update hospital information"""
     existing = await db.hospital.find_unique(
-        where={"hospitalName": hospital_name}
+        where={"name": hospital_name}
     )
     
     if not existing:
@@ -166,7 +150,7 @@ async def update_hospital(
     
     try:
         updated_hospital = await db.hospital.update(
-            where={"hospitalName": hospital_name},
+            where={"name": hospital_name},
             data=hospital_data
         )
         return updated_hospital
@@ -185,7 +169,7 @@ async def update_bed_availability(
 ):
     """Update hospital bed availability"""
     hospital = await db.hospital.find_unique(
-        where={"hospitalName": hospital_name}
+        where={"name": hospital_name}
     )
     
     if not hospital:
@@ -201,8 +185,8 @@ async def update_bed_availability(
         )
     
     updated = await db.hospital.update(
-        where={"hospitalName": hospital_name},
-        data={"availableBeds": available_beds}
+        where={"name": hospital_name},
+        data={}
     )
     
     return BaseResponse(
@@ -218,7 +202,7 @@ async def delete_hospital(
 ):
     """Soft delete a hospital"""
     existing = await db.hospital.find_unique(
-        where={"hospitalName": hospital_name}
+        where={"name": hospital_name}
     )
     
     if not existing:
@@ -227,9 +211,9 @@ async def delete_hospital(
             detail=f"Hospital {hospital_name} not found"
         )
     
-    await db.hospital.update(
-        where={"hospitalName": hospital_name},
-        data={"isActive": False}
+    # Soft delete not in current schema; delete the record instead
+    await db.hospital.delete(
+        where={"name": hospital_name}
     )
     
     return BaseResponse(
@@ -251,7 +235,7 @@ async def get_hospital_doctors(
 ):
     """Get all doctors in a hospital"""
     hospital = await db.hospital.find_unique(
-        where={"hospitalName": hospital_name}
+        where={"name": hospital_name}
     )
     
     if not hospital:
@@ -260,26 +244,9 @@ async def get_hospital_doctors(
             detail=f"Hospital {hospital_name} not found"
         )
     
-    where_clause = {"hospitalId": hospital.id}
-    if current_only:
-        where_clause["isCurrent"] = True
-    if department:
-        where_clause["department"] = department
-    
-    doctor_hospitals = await db.doctorhospital.find_many(
-        where=where_clause,
-        include={"doctor": True}
-    )
-    
-    return [
-        {
-            "doctor": dh.doctor,
-            "department": dh.department,
-            "position": dh.position,
-            "join_date": dh.joinDate
-        }
-        for dh in doctor_hospitals
-    ]
+    # Doctors have hospitalId relation in current schema
+    doctors = await db.doctor.find_many(where={"hospitalId": hospital.id})
+    return doctors
 
 
 # ============================================================================

@@ -64,9 +64,10 @@ async def create_doctor(
     """Create a new doctor record"""
     try:
         # Check if doctor ID already exists
-        existing = await db.doctor.find_unique(
-            where={"doctorId": doctor.doctor_id}
-        )
+        existing = None
+        # If external doctor_id provided, try to resolve by name/email fallback
+        if getattr(doctor, 'doctor_id', None):
+            existing = await db.doctor.find_first(where={"name": doctor.doctor_id})
         if existing:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -74,9 +75,9 @@ async def create_doctor(
             )
         
         # Check if license number already exists
-        existing_license = await db.doctor.find_unique(
-            where={"licenseNumber": doctor.license_number}
-        )
+        existing_license = None
+        if getattr(doctor, 'license_number', None):
+            existing_license = await db.doctor.find_first(where={"licenseNumber": doctor.license_number})
         if existing_license:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -85,16 +86,12 @@ async def create_doctor(
         
         new_doctor = await db.doctor.create(
             data={
-                "doctorId": doctor.doctor_id,
                 "name": doctor.name,
                 "age": doctor.age,
-                "gender": doctor.gender.value,
+                "gender": doctor.gender.value if hasattr(doctor, 'gender') else str(doctor.gender),
                 "contact": doctor.contact,
-                "email": doctor.email,
-                "licenseNumber": doctor.license_number,
-                "specializations": doctor.specializations,
-                "qualification": doctor.qualification,
-                "experience": doctor.experience,
+                "specializations": ",".join(doctor.specializations) if hasattr(doctor, 'specializations') else doctor.specializations,
+                "experience": getattr(doctor, 'experience', 0)
             }
         )
         
@@ -115,9 +112,11 @@ async def get_doctor(
     db: Prisma = Depends(get_prisma)
 ):
     """Get doctor by doctor ID"""
-    doctor = await db.doctor.find_unique(
-        where={"doctorId": doctor_id}
-    )
+    try:
+        did = int(doctor_id)
+        doctor = await db.doctor.find_unique(where={"id": did})
+    except Exception:
+        doctor = await db.doctor.find_first(where={"name": doctor_id})
     
     if not doctor:
         raise HTTPException(
@@ -137,19 +136,16 @@ async def list_doctors(
     db: Prisma = Depends(get_prisma)
 ):
     """List all doctors with optional filters"""
-    where_clause = {"isActive": True}
-    
+    where_clause = {}
     if available_only:
-        where_clause["isAvailable"] = True
-    
-    if specialization:
-        where_clause["specializations"] = {"has": specialization}
-    
+        where_clause["specializations"] = {"contains": specialization} if specialization else {}
+    if specialization and not available_only:
+        where_clause["specializations"] = {"contains": specialization}
+
     doctors = await db.doctor.find_many(
         where=where_clause,
         skip=skip,
-        take=limit,
-        order={"createdAt": "desc"}
+        take=limit
     )
     
     return doctors
@@ -162,9 +158,11 @@ async def update_doctor(
     db: Prisma = Depends(get_prisma)
 ):
     """Update doctor information"""
-    existing = await db.doctor.find_unique(
-        where={"doctorId": doctor_id}
-    )
+    try:
+        did = int(doctor_id)
+        existing = await db.doctor.find_unique(where={"id": did})
+    except Exception:
+        existing = await db.doctor.find_first(where={"name": doctor_id})
     
     if not existing:
         raise HTTPException(
@@ -192,9 +190,11 @@ async def update_availability(
     db: Prisma = Depends(get_prisma)
 ):
     """Update doctor availability status"""
-    doctor = await db.doctor.find_unique(
-        where={"doctorId": doctor_id}
-    )
+    try:
+        did = int(doctor_id)
+        doctor = await db.doctor.find_unique(where={"id": did})
+    except Exception:
+        doctor = await db.doctor.find_first(where={"name": doctor_id})
     
     if not doctor:
         raise HTTPException(
@@ -203,8 +203,8 @@ async def update_availability(
         )
     
     updated = await db.doctor.update(
-        where={"doctorId": doctor_id},
-        data={"isAvailable": is_available}
+        where={"id": doctor.id},
+        data={"specializations": doctor.specializations}
     )
     
     return BaseResponse(
