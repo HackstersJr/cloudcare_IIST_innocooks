@@ -392,18 +392,24 @@ async def create_emergency_patient(doctors, hospitals):
 
 
 async def create_user_logins(patients, doctors):
-    """Create login credentials for patients and doctors"""
+    """Create login credentials for ALL 7 patients and doctors matching CREDENTIALS_QUICK_REF.md"""
     print("\n🔐 Creating user logins...")
     
-    # Create logins for first 2 patients
-    for i in range(2):
-        patient = patients[i]
-        email = generate_email(patient.name)
-        
+    # Create logins for all patients with exact credentials from CREDENTIALS_QUICK_REF.md
+    patient_credentials = [
+        {"email": "rahul.sharma@yahoo.in", "password": "Demo@123"},        # Patient 1
+        {"email": "priya.gupta@gmail.com", "password": "Demo@123"},        # Patient 2
+        {"email": "patient3@cloudcare.local", "password": "Demo@123"},     # Patient 3 (Amit Kumar)
+        {"email": "patient4@cloudcare.local", "password": "Demo@123"},     # Patient 4 (Sneha Mehta)
+        {"email": "patient5@cloudcare.local", "password": "Demo@123"},     # Patient 5 (Rajesh Kumar - Emergency)
+    ]
+    
+    for i, patient in enumerate(patients[:5]):  # First 5 patients from seed
+        creds = patient_credentials[i]
         user = await db.userlogin.create(
             data={
-                "email": email,
-                "password": "hashed_password_" + str(i)  # In production, use proper hashing
+                "email": creds["email"],
+                "password": creds["password"]
             }
         )
         
@@ -413,17 +419,63 @@ async def create_user_logins(patients, doctors):
             data={"userLoginId": user.id}
         )
         
-        print(f"   ✅ Patient login: {email}")
+        print(f"   ✅ Patient login: {creds['email']} (password: {creds['password']})")
     
-    # Create logins for first 2 doctors
-    for i in range(2):
-        doctor = doctors[i]
-        email = generate_email(doctor.name)
-        
+    # Add Patient 6 and 7 (John Doe and Mobile Test User)
+    print("\n👥 Adding additional patients...")
+    
+    # Patient 6: John Doe
+    user6 = await db.userlogin.create(
+        data={
+            "email": "patient6@cloudcare.local",
+            "password": "Demo@123"
+        }
+    )
+    patient6 = await db.patient.create(
+        data={
+            "name": "John Doe",
+            "age": 35,
+            "gender": "Male",
+            "contact": "+91-9876543210",
+            "familyContact": "+91-9876543211",
+            "emergency": False,
+            "userLoginId": user6.id
+        }
+    )
+    print(f"   ✅ Patient 6: John Doe - patient6@cloudcare.local (password: Demo@123)")
+    
+    # Patient 7: Mobile Test User
+    user7 = await db.userlogin.create(
+        data={
+            "email": "patient7@cloudcare.local",
+            "password": "test123"
+        }
+    )
+    patient7 = await db.patient.create(
+        data={
+            "name": "Mobile Test User",
+            "age": 28,
+            "gender": "Male",
+            "contact": "+91-9876543212",
+            "familyContact": "+91-9876543213",
+            "emergency": False,
+            "userLoginId": user7.id
+        }
+    )
+    print(f"   ✅ Patient 7: Mobile Test User - patient7@cloudcare.local (password: test123)")
+    
+    # Create logins for doctors with exact credentials
+    doctor_credentials = [
+        {"email": ".suresh.krishnan@gmail.com", "password": "Doctor@123"},  # Doctor 1
+        {"email": ".meera.rao@outlook.com", "password": "Doctor@123"},      # Doctor 2
+    ]
+    
+    for i, doctor in enumerate(doctors[:2]):
+        creds = doctor_credentials[i]
         user = await db.userlogin.create(
             data={
-                "email": email,
-                "password": "hashed_doctor_password_" + str(i)
+                "email": creds["email"],
+                "password": creds["password"]
             }
         )
         
@@ -433,7 +485,7 @@ async def create_user_logins(patients, doctors):
             data={"userLoginId": user.id}
         )
         
-        print(f"   ✅ Doctor login: {email}")
+        print(f"   ✅ Doctor login: {creds['email']} (password: {creds['password']})")
 
 
 async def seed_database():
@@ -457,16 +509,20 @@ async def seed_database():
         print("="*60)
         print(f"\n📊 Summary:")
         print(f"   • Hospitals: {len(hospitals)}")
-        print(f"   • Doctors: {len(doctors)}")
+        print(f"   • Doctors: {len(doctors)} (2 with logins)")
         print(f"   • Regular Patients: {len(regular_patients)}")
         print(f"   • Emergency Patient: 1 (Rajesh Kumar)")
-        print(f"   • Total Patients: {len(all_patients)}")
+        print(f"   • Additional Patients: 2 (John Doe, Mobile Test User)")
+        print(f"   • Total Patients: 7 (all with login credentials)")
         print(f"\n🚨 MAIN DEMO PATIENT:")
         print(f"   Name: Rajesh Kumar (ID: {emergency_patient.id})")
         print(f"   Emergency: TRUE")
         print(f"   Current Doctor: Dr. Suresh Krishnan (Cardiology)")
         print(f"   Past Doctors: Dr. Meera Rao, Dr. Lakshmi Iyer")
         print(f"   Hospital: Apollo Hospital, Bangalore")
+        print(f"\n📱 HCGateway App Login:")
+        print(f"   Recommended: Username=7, Password=test123")
+        print(f"   Alternative: Username=1-6, Password=Demo@123")
         print("\n🎯 Ready for demo and testing!")
         
     except Exception as e:
@@ -478,4 +534,3 @@ async def seed_database():
 
 if __name__ == "__main__":
     asyncio.run(seed_database())
-x

@@ -1,5 +1,5 @@
 services:
-  # PostgreSQL Database with pgvector (shared by all services + n8n)
+  # PostgreSQL Database with pgvector (for CloudCare APIs)
   postgres:
     image: pgvector/pgvector:pg17
     restart: always
@@ -8,10 +8,13 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
+      # Also create n8n database
+      POSTGRES_MULTIPLE_DATABASES: ${POSTGRES_DB},${N8N_DB}
     ports:
       - "5432:5432"
     volumes:
-      - ./volumes/pgdata:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-databases.sh:/docker-entrypoint-initdb.d/init-databases.sh
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
       interval: 10s
@@ -29,11 +32,11 @@ services:
     ports:
       - "6379:6379"
     volumes:
-      - ./volumes/redisdata:/data
+      - redis_data:/data
     networks:
       - cloudcare_network
 
-  # n8n Workflow Automation
+  # n8n Workflow Automation (uses separate database)
   n8n:
     image: n8nio/n8n:latest
     restart: always
@@ -49,7 +52,7 @@ services:
       DB_TYPE: postgresdb
       DB_POSTGRESDB_HOST: postgres
       DB_POSTGRESDB_PORT: 5432
-      DB_POSTGRESDB_DATABASE: ${POSTGRES_DB}
+      DB_POSTGRESDB_DATABASE: ${N8N_DB}
       DB_POSTGRESDB_USER: ${POSTGRES_USER}
       DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD}
       N8N_BASIC_AUTH_ACTIVE: "true"
@@ -67,11 +70,11 @@ services:
       N8N_SECURE_COOKIE: "false"
       N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
     volumes:
-      - ./volumes/.n8n:/home/node/.n8n
+      - n8n_data:/home/node/.n8n
     networks:
       - cloudcare_network
 
-  # n8n Worker for background job processing
+  # n8n Worker for background job processing (uses separate database)
   n8n-worker:
     image: n8nio/n8n:latest
     restart: always
@@ -86,16 +89,16 @@ services:
       DB_TYPE: postgresdb
       DB_POSTGRESDB_HOST: postgres
       DB_POSTGRESDB_PORT: 5432
-      DB_POSTGRESDB_DATABASE: ${POSTGRES_DB}
+      DB_POSTGRESDB_DATABASE: ${N8N_DB}
       DB_POSTGRESDB_USER: ${POSTGRES_USER}
-      DB_POSTGRESDB_PASSWORD: ${POSTGRES_USER}
+      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD}
       QUEUE_BULL_REDIS_HOST: redis
       QUEUE_BULL_REDIS_PORT: 6379
       QUEUE_BULL_REDIS_PASSWORD: ${REDIS_PASSWORD}
       N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
       N8N_RUNNERS_ENABLED: "true"
     volumes:
-      - ./volumes/.worker:/home/node/.n8n
+      - n8n_worker_data:/home/node/.n8n
     command: worker
     networks:
       - cloudcare_network
@@ -197,6 +200,13 @@ services:
 
 volumes:
   postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  n8n_data:
+    driver: local
+  n8n_worker_data:
+    driver: local
 
 networks:
   cloudcare_network:
