@@ -63,3 +63,8 @@ uploads/
 temp/
 *.db
 *.sqlite
+
+# Docker volumes (database data, etc.)
+volumes/
+backend/volumes/
+**/volumes/

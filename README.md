@@ -1,192 +1,381 @@
-# CloudCare - 5 FastAPI Microservices Architecture
+# CloudCare - Healthcare Management Platform# CloudCare - 5 FastAPI Microservices Architecture
 
-## 🏗️ Project Overview
 
-CloudCare is a healthcare management system built with 5 independent FastAPI servers sharing a single PostgreSQL database. The system integrates wearable data from HCGateway and supports real-time emergency alerts via Server-Sent Events (SSE).
 
-### Architecture
+A comprehensive healthcare management system built with microservices architecture, featuring patient management, doctor coordination, hospital operations, emergency services, and wearable device integration.## 🏗️ Project Overview
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                    Frontend (n8n + AI)                  │
-│              (MCP Server + AI Agent + Chatbots)         │
-└────────────────────┬────────────────────────────────────┘
+
+
+## 🌟 FeaturesCloudCare is a healthcare management system built with 5 independent FastAPI servers sharing a single PostgreSQL database. The system integrates wearable data from HCGateway and supports real-time emergency alerts via Server-Sent Events (SSE).
+
+
+
+- **Patient Management**: Complete patient lifecycle management with medical records### Architecture
+
+- **Doctor Portal**: Specialized healthcare provider management
+
+- **Hospital Operations**: Multi-facility coordination system```
+
+- **Emergency Services**: Real-time emergency case handling┌─────────────────────────────────────────────────────────┐
+
+- **Wearable Integration**: Health monitoring device data collection│                    Frontend (n8n + AI)                  │
+
+- **N8N Automation**: Workflow automation for healthcare processes│              (MCP Server + AI Agent + Chatbots)         │
+
+- **Real-time Analytics**: AI-powered health insights and predictions└────────────────────┬────────────────────────────────────┘
+
                      │
-        ┌────────────┴────────────┐
+
+## 🚀 Quick Start        ┌────────────┴────────────┐
+
         │   API Gateway (Optional) │
-        └────────────┬────────────┘
-                     │
-    ┌────────────────┼────────────────┐
-    │                │                │
-┌───▼────┐  ┌───────▼──┐  ┌─────────▼────┐
+
+### Prerequisites        └────────────┬────────────┘
+
+```bash                     │
+
+- Docker & Docker Compose    ┌────────────────┼────────────────┐
+
+- Git    │                │                │
+
+```┌───▼────┐  ┌───────▼──┐  ┌─────────▼────┐
+
 │Patient │  │ Doctor   │  │  Hospital    │
-│  API   │  │   API    │  │    API       │
+
+### Installation│  API   │  │   API    │  │    API       │
+
 │ :8001  │  │  :8002   │  │   :8003      │
-└───┬────┘  └────┬─────┘  └──────┬───────┘
-    │            │                │
-    │  ┌─────────▼─────┐  ┌──────▼─────┐
-    │  │  Emergency API │  │ Wearables  │
+
+```bash└───┬────┘  └────┬─────┘  └──────┬───────┘
+
+# 1. Clone the repository    │            │                │
+
+git clone https://github.com/HackstersJr/cloudcare_IIST_innocooks.git    │  ┌─────────▼─────┐  ┌──────▼─────┐
+
+cd cloudcare_IIST_innocooks/backend    │  │  Emergency API │  │ Wearables  │
+
     │  │   (SSE) :8004  │  │   API      │
-    │  └────────┬───────┘  │  :8005     │
-    │           │          └──────┬─────┘
+
+# 2. Start all services    │  └────────┬───────┘  │  :8005     │
+
+docker-compose up -d    │           │          └──────┬─────┘
+
     └───────────┴──────────────────┘
-                │
-        ┌───────▼───────┐
-        │   PostgreSQL   │
+
+# 3. Verify deployment                │
+
+docker-compose ps        ┌───────▼───────┐
+
+```        │   PostgreSQL   │
+
         │   Database     │
-        │  (Shared DB)   │
+
+### Access Points        │  (Shared DB)   │
+
         └────────────────┘
-```
 
-## 📊 Database Schema
+| Service | URL | Documentation |```
 
-### Normalized Design Principles
+|---------|-----|---------------|
 
-The database is normalized to 3NF with the following entity relationships:
+| Patient API | http://localhost:8001 | http://localhost:8001/docs |## 📊 Database Schema
+
+| Doctor API | http://localhost:8002 | http://localhost:8002/docs |
+
+| Hospital API | http://localhost:8003 | http://localhost:8003/docs |### Normalized Design Principles
+
+| Emergency API | http://localhost:8004 | http://localhost:8004/docs |
+
+| Wearables API | http://localhost:8005 | http://localhost:8005/docs |The database is normalized to 3NF with the following entity relationships:
+
+| N8N Automation | http://localhost:5678 | - |
 
 **Core Entities:**
-- `Patient` - Patient information and emergency flags
+
+## 📖 Documentation- `Patient` - Patient information and emergency flags
+
 - `Doctor` - Doctor credentials and specializations
-- `Hospital` - Hospital details and bed availability
 
-**Relationship Tables (Junction Tables):**
-- `PatientDoctor` - Current and previous doctor-patient relationships
-- `PatientHospital` - Hospital admission/treatment history
-- `DoctorHospital` - Doctor-hospital affiliations
+**📘 [Complete Documentation](./DOCUMENTATION.md)** - Comprehensive guide including:- `Hospital` - Hospital details and bed availability
 
-**Supporting Tables:**
+- Full API reference with examples
+
+- Architecture diagrams**Relationship Tables (Junction Tables):**
+
+- Testing workflows- `PatientDoctor` - Current and previous doctor-patient relationships
+
+- N8N integration guide- `PatientHospital` - Hospital admission/treatment history
+
+- Troubleshooting tips- `DoctorHospital` - Doctor-hospital affiliations
+
+
+
+## 🧪 Quick Test**Supporting Tables:**
+
 - `MedicalRecord` - Medical records with wearable data references
-- `Prescription` - Past and current prescriptions
-- `WearableData` - Encrypted wearable device data (HCGateway integration)
-- `EmergencyAlert` - Real-time emergency alerts
-- `FamilyContact` - Patient emergency contacts
-- `PatientCondition` - Condition tracking
-- `ConsentRecord` - Wearable data consent management
 
-## 🚀 Quick Start
+```bash- `Prescription` - Past and current prescriptions
 
-### Prerequisites
+# Create a patient- `WearableData` - Encrypted wearable device data (HCGateway integration)
 
-- Python 3.11+
-- PostgreSQL 15+
-- Docker & Docker Compose (optional)
+curl -X POST http://localhost:8001/api/patients \- `EmergencyAlert` - Real-time emergency alerts
+
+  -H "Content-Type: application/json" \- `FamilyContact` - Patient emergency contacts
+
+  -d '{- `PatientCondition` - Condition tracking
+
+    "name": "John Doe",- `ConsentRecord` - Wearable data consent management
+
+    "age": 35,
+
+    "gender": "male",## 🚀 Quick Start
+
+    "contact": "+1234567890"
+
+  }'### Prerequisites
+
+
+
+# Get patient- Python 3.11+
+
+curl http://localhost:8001/api/patients/1- PostgreSQL 15+
+
+```- Docker & Docker Compose (optional)
+
 - Node.js (for Prisma CLI)
+
+## 🏗️ Architecture
 
 ### Installation
 
-1. **Clone the repository**
-   ```bash
-   cd cloudcare_IIST_innocooks
+```
+
+Frontend/Clients1. **Clone the repository**
+
+      │   ```bash
+
+      ├─────┬─────┬─────┬─────┐   cd cloudcare_IIST_innocooks
+
+      ▼     ▼     ▼     ▼     ▼   ```
+
+   Patient Doctor Hospital Emergency Wearables
+
+   (8001) (8002) (8003)  (8004)   (8005)2. **Install Node.js dependencies (for Prisma)**
+
+      │     │     │       │       │   ```bash
+
+      └─────┴─────┴───────┴───────┘   npm install -g prisma
+
+              │   ```
+
+         ┌────┴────┐
+
+         ▼         ▼3. **Set up environment variables**
+
+    PostgreSQL   Redis   ```bash
+
+     (5432)     (6379)   cp .env.example .env
+
+```   # Edit .env with your database credentials
+
    ```
 
-2. **Install Node.js dependencies (for Prisma)**
-   ```bash
-   npm install -g prisma
-   ```
+### Microservices
 
-3. **Set up environment variables**
-   ```bash
-   cp .env.example .env
-   # Edit .env with your database credentials
-   ```
+- **Patient API** (8001): Patient data and medical records4. **Install Python dependencies**
 
-4. **Install Python dependencies**
-   ```bash
-   pip install -r backend/requirements.txt
-   ```
+- **Doctor API** (8002): Healthcare provider information   ```bash
 
-5. **Set up the database**
+- **Hospital API** (8003): Hospital and facility management   pip install -r backend/requirements.txt
+
+- **Emergency API** (8004): Emergency case handling   ```
+
+- **Wearables API** (8005): Device data ingestion
+
+- **N8N** (5678): Workflow automation5. **Set up the database**
+
    ```bash
-   # Generate Prisma Client
+
+## 📊 Database Schema   # Generate Prisma Client
+
    prisma generate --schema=./backend/prisma/schema.prisma
-   
-   # Run migrations
-   prisma db push --schema=./backend/prisma/schema.prisma
-   ```
 
-6. **Run with Docker Compose (Recommended)**
-   ```bash
-   cd backend
+### Core Models   
+
+- `Patient` - Patient information with emergency flags   # Run migrations
+
+- `Doctor` - Medical professionals with specializations   prisma db push --schema=./backend/prisma/schema.prisma
+
+- `Hospital` - Healthcare facilities   ```
+
+- `Record` - Medical records and history
+
+- `Prescription` - Medication prescriptions6. **Run with Docker Compose (Recommended)**
+
+- `PatientCondition` - Health conditions tracking   ```bash
+
+- `WearableData` - Device health metrics   cd backend
+
    docker-compose up -d
-   ```
 
-   Or run each server individually:
-   ```bash
-   # Terminal 1 - Patient API
-   cd backend/patient-api && python main.py
-   
-   # Terminal 2 - Doctor API
-   cd backend/doctor-api && python main.py
-   
-   # Terminal 3 - Hospital API
-   cd backend/hospital-api && python main.py
-   
-   # Terminal 4 - Emergency API (SSE)
-   cd backend/emergency-api && python main.py
-   
-   # Terminal 5 - Wearables API
+## 🔧 Development   ```
+
+
+
+### Project Structure   Or run each server individually:
+
+```   ```bash
+
+backend/   # Terminal 1 - Patient API
+
+├── patient-api/       # Patient management   cd backend/patient-api && python main.py
+
+├── doctor-api/        # Doctor management   
+
+├── hospital-api/      # Hospital management   # Terminal 2 - Doctor API
+
+├── emergency-api/     # Emergency services   cd backend/doctor-api && python main.py
+
+├── wearables-api/     # Wearable integration   
+
+├── shared/            # Shared code   # Terminal 3 - Hospital API
+
+│   ├── models.py      # Pydantic models   cd backend/hospital-api && python main.py
+
+│   ├── database.py    # DB connection   
+
+│   └── entrypoint.sh  # Auto-migrations   # Terminal 4 - Emergency API (SSE)
+
+├── prisma/            # Schema & migrations   cd backend/emergency-api && python main.py
+
+└── docker-compose.yml # Orchestration   
+
+```   # Terminal 5 - Wearables API
+
    cd backend/wearables-api && python main.py
-   ```
 
-## 📡 API Endpoints
+### Useful Commands   ```
 
-### Patient API (Port 8001)
 
-**Patient Management:**
-- `POST /api/patients` - Create patient
+
+```bash## 📡 API Endpoints
+
+# View logs
+
+docker logs cloudcare_patient_api -f### Patient API (Port 8001)
+
+
+
+# Rebuild a service**Patient Management:**
+
+docker-compose up -d --build patient-api- `POST /api/patients` - Create patient
+
 - `GET /api/patients/{patient_id}` - Get patient by ID
-- `GET /api/patients` - List all patients
-- `PUT /api/patients/{patient_id}` - Update patient
+
+# Access database- `GET /api/patients` - List all patients
+
+docker exec -it hacksters-postgres psql -U cloudcare -d cloudcare_db- `PUT /api/patients/{patient_id}` - Update patient
+
 - `DELETE /api/patients/{patient_id}` - Deactivate patient
 
-**Family Contacts:**
+# Stop all services
+
+docker-compose down**Family Contacts:**
+
 - `GET /api/patients/{patient_id}/family-contacts` - Get contacts
-- `POST /api/patients/{patient_id}/family-contacts` - Add contact
 
-**Patient Conditions:**
+# Reset everything (WARNING: deletes data)- `POST /api/patients/{patient_id}/family-contacts` - Add contact
+
+docker-compose down -v
+
+```**Patient Conditions:**
+
 - `GET /api/patients/{patient_id}/conditions` - Get conditions
-- `POST /api/patients/{patient_id}/conditions` - Add condition
 
-**Medical Records:**
-- `GET /api/patients/{patient_id}/records` - Get all records
+## 🔄 Recent Updates (October 2025)- `POST /api/patients/{patient_id}/conditions` - Add condition
 
-**Emergency Flag:**
-- `POST /api/patients/{patient_id}/emergency` - Set emergency flag
-- `DELETE /api/patients/{patient_id}/emergency` - Clear emergency flag
 
-### Doctor API (Port 8002)
 
-**Doctor Management:**
+### ✅ Completed**Medical Records:**
+
+- ✅ Simplified database schema (integer IDs, removed complex enums)- `GET /api/patients/{patient_id}/records` - Get all records
+
+- ✅ Patient API fully updated (15+ working endpoints)
+
+- ✅ Auto-migrations on Docker startup**Emergency Flag:**
+
+- ✅ Fixed N8N PostgreSQL connection- `POST /api/patients/{patient_id}/emergency` - Set emergency flag
+
+- ✅ Consolidated documentation- `DELETE /api/patients/{patient_id}/emergency` - Clear emergency flag
+
+
+
+### 🚧 In Progress### Doctor API (Port 8002)
+
+- Doctor/Hospital/Emergency/Wearables API updates
+
+- Frontend development**Doctor Management:**
+
 - `POST /api/doctors` - Create doctor
-- `GET /api/doctors/{doctor_id}` - Get doctor by ID
+
+## 🛠️ Tech Stack- `GET /api/doctors/{doctor_id}` - Get doctor by ID
+
 - `GET /api/doctors` - List doctors (filter by specialization)
-- `PUT /api/doctors/{doctor_id}` - Update doctor
-- `PATCH /api/doctors/{doctor_id}/availability` - Update availability
-- `DELETE /api/doctors/{doctor_id}` - Deactivate doctor
 
-**Doctor-Patient Relationships:**
-- `GET /api/doctors/{doctor_id}/patients` - Get doctor's patients
+- **FastAPI** - Modern Python web framework- `PUT /api/doctors/{doctor_id}` - Update doctor
+
+- **Prisma ORM** - Type-safe database access- `PATCH /api/doctors/{doctor_id}/availability` - Update availability
+
+- **PostgreSQL** - Primary database with pgvector- `DELETE /api/doctors/{doctor_id}` - Deactivate doctor
+
+- **Redis** - Caching and queues
+
+- **N8N** - Workflow automation**Doctor-Patient Relationships:**
+
+- **Docker** - Containerization- `GET /api/doctors/{doctor_id}/patients` - Get doctor's patients
+
 - `POST /api/doctors/{doctor_id}/patients/{patient_id}` - Assign patient
-- `DELETE /api/doctors/{doctor_id}/patients/{patient_id}` - Remove patient
 
-**Doctor-Hospital Relationships:**
-- `GET /api/doctors/{doctor_id}/hospitals` - Get doctor's hospitals
-- `POST /api/doctors/{doctor_id}/hospitals/{hospital_name}` - Assign to hospital
+## 🤝 Contributing- `DELETE /api/doctors/{doctor_id}/patients/{patient_id}` - Remove patient
 
-### Hospital API (Port 8003)
 
-**Hospital Management:**
+
+1. Fork the repository**Doctor-Hospital Relationships:**
+
+2. Create feature branch (`git checkout -b feature/amazing-feature`)- `GET /api/doctors/{doctor_id}/hospitals` - Get doctor's hospitals
+
+3. Commit changes (`git commit -m 'Add amazing feature'`)- `POST /api/doctors/{doctor_id}/hospitals/{hospital_name}` - Assign to hospital
+
+4. Push to branch (`git push origin feature/amazing-feature`)
+
+5. Open Pull Request### Hospital API (Port 8003)
+
+
+
+## 📄 License**Hospital Management:**
+
 - `POST /api/hospitals` - Create hospital
-- `GET /api/hospitals/{hospital_name}` - Get hospital
+
+MIT License - see LICENSE file for details.- `GET /api/hospitals/{hospital_name}` - Get hospital
+
 - `GET /api/hospitals` - List hospitals
-- `PUT /api/hospitals/{hospital_name}` - Update hospital
+
+## 📞 Support- `PUT /api/hospitals/{hospital_name}` - Update hospital
+
 - `PATCH /api/hospitals/{hospital_name}/beds` - Update bed availability
-- `DELETE /api/hospitals/{hospital_name}` - Deactivate hospital
+
+- **Documentation**: [DOCUMENTATION.md](./DOCUMENTATION.md)- `DELETE /api/hospitals/{hospital_name}` - Deactivate hospital
+
+- **Issues**: [GitHub Issues](https://github.com/HackstersJr/cloudcare_IIST_innocooks/issues)
 
 **Hospital Staff:**
-- `GET /api/hospitals/{hospital_name}/doctors` - Get hospital doctors
 
-**Hospital Patients:**
+---- `GET /api/hospitals/{hospital_name}/doctors` - Get hospital doctors
+
+
+
+**Made with ❤️ for Healthcare Innovation****Hospital Patients:**
+
 - `GET /api/hospitals/{hospital_name}/patients` - Get admitted patients
 - `POST /api/hospitals/{hospital_name}/patients/{patient_id}/admit` - Admit patient
 - `POST /api/hospitals/{hospital_name}/patients/{patient_id}/discharge` - Discharge patient

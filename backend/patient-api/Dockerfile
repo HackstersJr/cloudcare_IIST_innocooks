@@ -22,11 +22,15 @@ RUN if [ -s requirements.txt ]; then pip install --no-cache-dir -r requirements.
 COPY prisma /app/prisma
 RUN prisma generate --schema=/app/prisma/schema.prisma
 
+# Copy entrypoint script
+COPY shared/entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
 # Copy application code
 COPY patient-api/main.py .
 
 # Expose port
 EXPOSE 8001
 
-# Run the application
-CMD ["python", "main.py"]
+# Run migrations and start the application
+CMD ["/app/entrypoint.sh"]

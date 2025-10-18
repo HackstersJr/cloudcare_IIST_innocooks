@@ -8,6 +8,8 @@ RUN pip install --no-cache-dir -r /app/shared_requirements.txt
 RUN if [ -s requirements.txt ]; then pip install --no-cache-dir -r requirements.txt || true; fi
 COPY prisma /app/prisma
 RUN prisma generate --schema=/app/prisma/schema.prisma
+COPY shared/entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
 COPY doctor-api/main.py .
 EXPOSE 8002
-CMD ["python", "main.py"]
+CMD ["/app/entrypoint.sh"]
