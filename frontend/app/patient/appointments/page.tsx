@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import {
   Box,
   Card,
@@ -39,8 +38,13 @@ import { LocalizationProvider, DatePicker, TimePicker } from '@mui/x-date-picker
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { formatDate } from '@/lib/utils/formatters';
 import type { AppointmentWithDetails } from '@/types/patient';
-import { useAppointments, useCreateAppointment, useCancelAppointment } from '@/lib/hooks/useAppointments';
-import { MOCK_DOCTORS, MOCK_HOSPITALS } from '@/lib/mockData';
+import {
+  MOCK_APPOINTMENTS,
+  MOCK_DOCTORS,
+  MOCK_HOSPITALS,
+  getDoctorById,
+  getHospitalById,
+} from '@/lib/mockData';
 
 const DEPARTMENTS = [
   'Cardiology',
@@ -54,25 +58,9 @@ const DEPARTMENTS = [
 ];
 
 export default function AppointmentsPage() {
-  const router = useRouter();
   const [activeTab, setActiveTab] = useState(0);
   const [openNewDialog, setOpenNewDialog] = useState(false);
-  const [patientId, setPatientId] = useState<number | null>(null);
-  
-  // Get patient ID from localStorage
-  useEffect(() => {
-    const storedPatientId = localStorage.getItem('patientId');
-    if (!storedPatientId) {
-      router.push('/login');
-      return;
-    }
-    setPatientId(parseInt(storedPatientId));
-  }, [router]);
-
-  // Fetch appointments using React Query
-  const { data: appointments = [], isLoading, refetch } = useAppointments(patientId || 0, undefined, !!patientId);
-  const createMutation = useCreateAppointment();
-  const cancelMutation = useCancelAppointment();
+  const [appointments, setAppointments] = useState<AppointmentWithDetails[]>(MOCK_APPOINTMENTS);
   
   // New appointment form state
   const [newAppointment, setNewAppointment] = useState({
@@ -134,58 +122,59 @@ export default function AppointmentsPage() {
     }
   };
 
-  const handleCancelAppointment = async (appointmentId: number) => {
-    if (!patientId) return;
-    
-    try {
-      await cancelMutation.mutateAsync({ patientId, appointmentId });
-      refetch();
-    } catch (error) {
-      console.error('Failed to cancel appointment:', error);
-      alert('Failed to cancel appointment');
-    }
+  const handleCancelAppointment = (id: number) => {
+    setAppointments(
+      appointments.map((apt) =>
+        apt.id === id ? { ...apt, status: 'cancelled' as const } : apt
+      )
+    );
   };
 
-  const handleCreateAppointment = async () => {
-    if (!patientId) {
-      alert('Patient ID not found');
+  const handleCreateAppointment = () => {
+    const doctor = getDoctorById(parseInt(newAppointment.doctorId, 10));
+    const hospital = getHospitalById(parseInt(newAppointment.hospitalId, 10));
+
+    if (!doctor || !hospital) {
+      alert('Please select a doctor and hospital');
       return;
     }
 
-    if (!newAppointment.doctorId || !newAppointment.hospitalId || !newAppointment.department) {
-      alert('Please fill in all required fields');
-      return;
-    }
+    const newApt: AppointmentWithDetails = {
+      id: appointments.length + 1,
+      patientId: 1,
+      doctorId: parseInt(newAppointment.doctorId),
+      hospitalId: parseInt(newAppointment.hospitalId),
+      appointmentDate: newAppointment.date.toISOString().split('T')[0],
+      appointmentTime: newAppointment.time.toTimeString().slice(0, 5),
+      department: newAppointment.department,
+      status: 'scheduled',
+      notes: newAppointment.notes,
+      doctor: {
+        id: doctor.id,
+        name: doctor.name,
+        age: 40,
+        gender: 'Unknown',
+        contact: '+91-9876543210',
+  specializations: doctor.specializations,
+      },
+      hospital: {
+        id: hospital.id,
+        name: hospital.name,
+      },
+    };
 
-    try {
-      await createMutation.mutateAsync({
-        patientId,
-        data: {
-          doctorId: parseInt(newAppointment.doctorId),
-          hospitalId: parseInt(newAppointment.hospitalId),
-          appointmentDate: newAppointment.date.toISOString().split('T')[0],
-          appointmentTime: newAppointment.time.toTimeString().slice(0, 5),
-          department: newAppointment.department,
-          notes: newAppointment.notes || undefined,
-        },
-      });
-
-      setOpenNewDialog(false);
-      refetch();
-      
-      // Reset form
-      setNewAppointment({
-        doctorId: '',
-        hospitalId: '',
-        department: '',
-        date: new Date(),
-        time: new Date(),
-        notes: '',
-      });
-    } catch (error) {
-      console.error('Failed to create appointment:', error);
-      alert('Failed to create appointment');
-    }
+    setAppointments([newApt, ...appointments]);
+    setOpenNewDialog(false);
+    
+    // Reset form
+    setNewAppointment({
+      doctorId: '',
+      hospitalId: '',
+      department: '',
+      date: new Date(),
+      time: new Date(),
+      notes: '',
+    });
   };
 
   const filteredAppointments = getFilteredAppointments();
@@ -309,13 +298,13 @@ export default function AppointmentsPage() {
                               <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                                 <DoctorIcon sx={{ fontSize: 20, color: 'primary.main', mr: 1 }} />
                                 <Typography variant="body1" fontWeight={600}>
-                                  {(appointment as AppointmentWithDetails).doctor?.name}
+                                  {appointment.doctor?.name}
                                 </Typography>
                               </Box>
                               <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                                 <HospitalIcon sx={{ fontSize: 20, color: 'text.secondary', mr: 1 }} />
                                 <Typography variant="body2" color="text.secondary">
-                                  {(appointment as AppointmentWithDetails).hospital?.name}
+                                  {appointment.hospital?.name}
                                 </Typography>
                               </Box>
                               <Chip

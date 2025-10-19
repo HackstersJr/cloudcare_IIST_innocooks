@@ -40,8 +40,8 @@ export default function DoctorLoginPage() {
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: 'suresh.krishnan@gmail.com', // Dr. Suresh Krishnan - Cardiologist
-      password: 'Doctor@123',
+      email: 'dr.smith@hospital.com',
+      password: 'doctor123',
     },
   });
 
@@ -50,26 +50,17 @@ export default function DoctorLoginPage() {
     setError(null);
 
     try {
-      // Map of actual seeded doctor credentials from database
-      const doctorCredentials: Record<string, { password: string; doctorId: number; name: string }> = {
-        'suresh.krishnan@gmail.com': { password: 'Doctor@123', doctorId: 6, name: 'Dr. Suresh Krishnan (Cardiology)' },
-        'meera.rao@outlook.com': { password: 'Doctor@123', doctorId: 7, name: 'Dr. Meera Rao (General Medicine)' },
-      };
-
-      const doctor = doctorCredentials[data.email];
-      
-      if (!doctor || doctor.password !== data.password) {
-        setError('Invalid email or password');
-        return;
+      // Demo login - accept any credentials for now
+      if (data.email && data.password) {
+        // Store doctor session
+        localStorage.setItem('doctorId', '1');
+        localStorage.setItem('doctorEmail', data.email);
+        
+        // Redirect to doctor dashboard
+        router.push('/doctor');
+      } else {
+        setError('Invalid credentials');
       }
-
-      // Store doctor session
-      localStorage.setItem('doctorId', doctor.doctorId.toString());
-      localStorage.setItem('doctorEmail', data.email);
-      localStorage.setItem('doctorName', doctor.name);
-      
-      // Redirect to doctor dashboard
-      router.push('/doctor');
     } catch (err) {
       setError('Login failed. Please try again.');
     } finally {
@@ -131,17 +122,11 @@ export default function DoctorLoginPage() {
 
           {/* Demo Credentials Info */}
           <Alert severity="info" sx={{ mb: 3 }}>
-            <Typography variant="body2" fontWeight={600} gutterBottom>
-              🧪 Test Credentials (from seeded database):
+            <Typography variant="body2">
+              <strong>Demo Credentials:</strong><br />
+              Email: sarah.johnson@cloudcare.com<br />
+              Password: doctor123
             </Typography>
-            <Box sx={{ fontSize: '0.75rem', fontFamily: 'monospace' }}>
-              <Typography variant="caption" display="block">
-                <strong>Cardiologist:</strong> suresh.krishnan@gmail.com | Doctor@123 (Pre-filled)
-              </Typography>
-              <Typography variant="caption" display="block">
-                <strong>General Medicine:</strong> meera.rao@outlook.com | Doctor@123
-              </Typography>
-            </Box>
           </Alert>
 
           {/* Login Form */}

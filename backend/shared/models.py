@@ -29,6 +29,7 @@ class PatientCreate(BaseModel):
     age: int
     gender: str
     contact: str
+    email: Optional[str] = None
     familyContact: Optional[str] = None
     emergency: bool = False
     aiAnalysis: Optional[str] = None
@@ -38,6 +39,7 @@ class PatientUpdate(BaseModel):
     age: Optional[int] = None
     gender: Optional[str] = None
     contact: Optional[str] = None
+    email: Optional[str] = None
     familyContact: Optional[str] = None
     emergency: Optional[bool] = None
     aiAnalysis: Optional[str] = None
@@ -48,10 +50,10 @@ class PatientResponse(BaseModel):
     age: int
     gender: str
     contact: str
+    email: Optional[str]
     familyContact: str
     emergency: bool
-    aiAnalysis: Optional[str] = None
-    userLoginId: Optional[int] = None
+    aiAnalysis: Optional[str]
 
     class Config:
         from_attributes = True
@@ -112,32 +114,29 @@ class HospitalResponse(BaseModel):
 class RecordCreate(BaseModel):
     patientId: int
     description: str
-    date: datetime
     recordType: str  # Consultation, Lab Test, ECG, X-Ray, Emergency
     diagnosis: Optional[str] = None
-    treatment: Optional[str] = None
-    doctorId: Optional[int] = None
-    hospitalId: Optional[int] = None
+    doctorName: Optional[str] = None
+    hospitalName: Optional[str] = None
+    date: datetime
 
 class RecordUpdate(BaseModel):
     description: Optional[str] = None
-    date: Optional[datetime] = None
     recordType: Optional[str] = None
     diagnosis: Optional[str] = None
-    treatment: Optional[str] = None
-    doctorId: Optional[int] = None
-    hospitalId: Optional[int] = None
+    doctorName: Optional[str] = None
+    hospitalName: Optional[str] = None
+    date: Optional[datetime] = None
 
 class RecordResponse(BaseModel):
     id: int
     patientId: int
     description: str
-    date: datetime
     recordType: str
     diagnosis: Optional[str]
-    treatment: Optional[str]
-    doctorId: Optional[int]
-    hospitalId: Optional[int]
+    doctorName: Optional[str]
+    hospitalName: Optional[str]
+    date: datetime
 
     class Config:
         from_attributes = True
@@ -230,45 +229,6 @@ class WearableDataResponse(BaseModel):
     temperature: Optional[float]
     description: Optional[str]
     recordId: Optional[int]
-
-    class Config:
-        from_attributes = True
-
-# =============================================================================
-# APPOINTMENT MODELS
-# =============================================================================
-
-class AppointmentCreate(BaseModel):
-    patientId: int
-    doctorId: int
-    hospitalId: int
-    appointmentDate: datetime
-    appointmentTime: str
-    department: str
-    status: str = "scheduled"
-    notes: Optional[str] = None
-
-class AppointmentUpdate(BaseModel):
-    doctorId: Optional[int] = None
-    hospitalId: Optional[int] = None
-    appointmentDate: Optional[datetime] = None
-    appointmentTime: Optional[str] = None
-    department: Optional[str] = None
-    status: Optional[str] = None
-    notes: Optional[str] = None
-
-class AppointmentResponse(BaseModel):
-    id: int
-    patientId: int
-    doctorId: int
-    hospitalId: int
-    appointmentDate: datetime
-    appointmentTime: str
-    department: str
-    status: str
-    notes: Optional[str]
-    createdAt: datetime
-    updatedAt: datetime
 
     class Config:
         from_attributes = True

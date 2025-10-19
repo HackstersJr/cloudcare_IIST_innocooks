@@ -43,8 +43,8 @@ export default function LoginPage() {
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: 'rahul.sharma@yahoo.in', // Pre-filled for demo - Rahul Sharma (First Patient)
-      password: 'Demo@123',
+      email: 'rajesh@example.com', // Pre-filled for demo
+      password: 'test123',
     },
   });
 
@@ -59,29 +59,14 @@ export default function LoginPage() {
       // Simulate API delay
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      // Map of actual seeded credentials from database
-      const patientCredentials: Record<string, { password: string; patientId: number; name: string }> = {
-        'rahul.sharma@yahoo.in': { password: 'Demo@123', patientId: 8, name: 'Rahul Sharma' },
-        'priya.gupta@gmail.com': { password: 'Demo@123', patientId: 9, name: 'Priya Gupta' },
-        'patient3@cloudcare.local': { password: 'Demo@123', patientId: 10, name: 'Amit Kumar' },
-        'patient4@cloudcare.local': { password: 'Demo@123', patientId: 11, name: 'Sneha Mehta' },
-        'patient5@cloudcare.local': { password: 'Demo@123', patientId: 12, name: 'Rajesh Kumar (EMERGENCY)' },
-        'patient6@cloudcare.local': { password: 'Demo@123', patientId: 13, name: 'John Doe' },
-        'patient7@cloudcare.local': { password: 'test123', patientId: 14, name: 'Mobile Test User' },
-      };
-
-      const user = patientCredentials[data.email];
-      
-      if (!user || user.password !== data.password) {
-        throw new Error('Invalid email or password');
-      }
+      // For demo: Accept any email/password and use patient ID 1
+      const demoToken = 'demo_token_' + Date.now();
+      const demoPatientId = '1'; // Rajesh Kumar - emergency patient
 
       // Store auth info
-      const demoToken = 'demo_token_' + Date.now();
       localStorage.setItem('authToken', demoToken);
-      localStorage.setItem('patientId', user.patientId.toString());
+      localStorage.setItem('patientId', demoPatientId);
       localStorage.setItem('userEmail', data.email);
-      localStorage.setItem('userName', user.name);
 
       // Redirect to patient dashboard
       router.push('/patient');
@@ -132,20 +117,12 @@ export default function LoginPage() {
 
           {/* Demo Info */}
           <Alert severity="info" sx={{ mb: 3 }}>
-            <Typography variant="body2" fontWeight={600} gutterBottom>
-              🧪 Test Credentials (from seeded database):
+            <Typography variant="body2" fontWeight={500}>
+              Demo Credentials (pre-filled):
             </Typography>
-            <Box sx={{ fontSize: '0.75rem', fontFamily: 'monospace' }}>
-              <Typography variant="caption" display="block">
-                <strong>First Patient:</strong> rahul.sharma@yahoo.in | Demo@123 (Pre-filled - Rahul Sharma)
-              </Typography>
-              <Typography variant="caption" display="block">
-                <strong>Emergency Patient:</strong> patient5@cloudcare.local | Demo@123 (Rajesh Kumar)
-              </Typography>
-              <Typography variant="caption" display="block">
-                <strong>Mobile Test:</strong> patient7@cloudcare.local | test123
-              </Typography>
-            </Box>
+            <Typography variant="caption">
+              Email: rajesh@example.com | Password: test123
+            </Typography>
           </Alert>
 
           {/* Login Form */}

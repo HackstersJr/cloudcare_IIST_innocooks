@@ -33,7 +33,7 @@ export interface MedicalRecord {
   patientId: number;
   description: string;
   date: string;
-  recordType: string;
+  recordType?: string;
   diagnosis?: string;
   treatment?: string;
   doctorId?: number;
