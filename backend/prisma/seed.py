@@ -36,6 +36,27 @@ async def clear_database():
     await db.doctor.delete_many()
     await db.hospital.delete_many()
     await db.userlogin.delete_many()
+
+    # Reset sequences so IDs align with mock data expectations
+    # Try to reset sequences if they exist (ignore if they don't)
+    try:
+        sequence_names = [
+            'Patient_id_seq',
+            'Doctor_id_seq',
+            'Hospital_id_seq',
+            'Record_id_seq',
+            'Prescription_id_seq',
+            'PatientCondition_id_seq',
+            'WearableData_id_seq',
+            'UserLogin_id_seq',
+        ]
+        for seq in sequence_names:
+            try:
+                await db.execute_raw(f'ALTER SEQUENCE "{seq}" RESTART WITH 1;')
+            except Exception:
+                pass  # Sequence doesn't exist, that's okay
+    except Exception as e:
+        print(f"   ⚠️  Could not reset sequences (this is usually fine): {e}")
     
     print("   ✅ All existing data cleared")
 
@@ -155,31 +176,16 @@ async def create_main_patient(doctors, hospitals):
     # Add medical records  
     records_data = [
         {
-            "recordType": "Consultation",
-            "description": "Cardiology review • systolic BP averaged 145 mmHg",
-            "diagnosis": "Hypertension not fully controlled",
-            "treatment": "Continue Amlodipine 5mg daily, add evening walk regimen",
+            "description": "[Consultation] Cardiology review • systolic BP averaged 145 mmHg. Diagnosis: Hypertension not fully controlled. Treatment: Continue Amlodipine 5mg daily, add evening walk regimen. Dr. Sarah Johnson at City General Hospital",
             "date": datetime(2025, 10, 15, 10, 0),
-            "doctorId": doctors[0].id,
-            "hospitalId": hospitals[0].id
         },
         {
-            "recordType": "Lab Test",
-            "description": "Complete lipid profile and HbA1c screening",
-            "diagnosis": "LDL 145 mg/dL • HbA1c 7.2%",
-            "treatment": "Maintain Metformin, start Atorvastatin 10mg nightly",
+            "description": "[Lab Test] Complete lipid profile and HbA1c screening. Results: LDL 145 mg/dL • HbA1c 7.2%. Treatment: Maintain Metformin, start Atorvastatin 10mg nightly. Dr. Amit Patel at City General Hospital",
             "date": datetime(2025, 10, 10, 8, 30),
-            "doctorId": doctors[1].id,
-            "hospitalId": hospitals[0].id
         },
         {
-            "recordType": "Emergency",
-            "description": "Emergency visit for chest discomfort and dizziness",
-            "diagnosis": "Ruled out myocardial infarction; observed anxiety episode",
-            "treatment": "Observation for 4 hours, prescribed short-term anxiolytic",
+            "description": "[Emergency] Emergency visit for chest discomfort and dizziness. Diagnosis: Ruled out myocardial infarction; observed anxiety episode. Treatment: Observation for 4 hours, prescribed short-term anxiolytic. Dr. Priya Sharma at Metro Medical Center",
             "date": datetime(2025, 9, 5, 22, 30),
-            "doctorId": doctors[2].id,
-            "hospitalId": hospitals[1].id
         }
     ]
     
@@ -187,13 +193,8 @@ async def create_main_patient(doctors, hospitals):
         await db.record.create(
             data={
                 "patientId": patient.id,
-                "recordType": rec["recordType"],
                 "description": rec["description"],
-                "diagnosis": rec["diagnosis"],
-                "treatment": rec["treatment"],
                 "date": rec["date"],
-                "doctorId": rec["doctorId"],
-                "hospitalId": rec["hospitalId"]
             }
         )
     
@@ -366,13 +367,8 @@ async def create_hospital_emergency_patients(doctors, hospitals):
         await db.record.create(
             data={
                 "patientId": patient.id,
-                "recordType": "Emergency",
-                "description": f"Emergency admission: {data['condition']}. Patient admitted {idx + 1} hours ago. In treatment.",
-                "diagnosis": data['condition'],
-                "treatment": "Emergency stabilization in progress",
+                "description": f"[Emergency] Emergency admission: {data['condition']}. Patient admitted {idx + 1} hours ago. In treatment. Emergency stabilization in progress. Doctor: {doctors[idx % len(doctors)].name} at City General Hospital",
                 "date": datetime.now() - timedelta(hours=idx + 1),
-                "doctorId": doctors[idx % len(doctors)].id,
-                "hospitalId": hospitals[0].id
             }
         )
         

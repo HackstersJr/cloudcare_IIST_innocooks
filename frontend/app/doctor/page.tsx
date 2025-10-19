@@ -38,6 +38,7 @@ import {
   MOCK_ASSIGNED_PATIENTS,
 } from '@/constants/doctor';
 import type { AssignedPatient, EmergencyAlert } from '@/types/doctor';
+import { ChatBot } from '@/components/chatbot/ChatBot';
 
 
 export default function DoctorDashboardPage() {
@@ -505,7 +506,7 @@ export default function DoctorDashboardPage() {
         )}
       </Dialog>
     </Box>
-    <AIChat />
+    <ChatBot />
     </>
   );
 }

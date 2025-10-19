@@ -40,6 +40,7 @@ import {
   FamilyRestroom as FamilyIcon,
 } from '@mui/icons-material';
 import DashboardLayout from '@/components/layout/DashboardLayout';
+import { ChatBot } from '@/components/chatbot/ChatBot';
 import type { Patient, FamilyContact } from '@/types/patient';
 import {
   FALLBACK_PATIENT_ID,
@@ -497,7 +498,7 @@ export default function ProfilePage() {
         </DialogActions>
       </Dialog>
       </DashboardLayout>
-      <AIChat />
+      <ChatBot />
     </>
   );
 }

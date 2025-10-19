@@ -29,7 +29,7 @@ import {
   MOCK_EMERGENCY_CASES,
   MOCK_DEPARTMENTS,
 } from '@/constants/hospital';
-import { AIChat } from '@/components/ai/AIChat';
+import { ChatBot } from '@/components/chatbot/ChatBot';
 
 export default function HospitalDashboard() {
   // Using mock data for now - will switch to real data when backend is ready
@@ -337,7 +337,7 @@ export default function HospitalDashboard() {
         </Grid>
       </Grid>
     </Box>
-    <AIChat />
+    <ChatBot />
     </>
   );
 }

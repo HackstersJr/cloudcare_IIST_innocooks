@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Box,
   Drawer,
@@ -54,6 +54,18 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   
   const [mobileOpen, setMobileOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [userInitial, setUserInitial] = useState('P');
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const storedEmail = window.localStorage.getItem('userEmail');
+    if (storedEmail && storedEmail[0]) {
+      setUserInitial(storedEmail[0].toUpperCase());
+    }
+  }, []);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -68,10 +80,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('patientId');
-    localStorage.removeItem('userEmail');
-    localStorage.removeItem('wearableToken');
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem('authToken');
+      window.localStorage.removeItem('patientId');
+      window.localStorage.removeItem('userEmail');
+      window.localStorage.removeItem('wearableToken');
+    }
     router.push('/');
   };
 
@@ -207,7 +221,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <IconButton onClick={handleProfileMenuOpen} sx={{ p: 0 }}>
               <Avatar sx={{ bgcolor: 'primary.main', width: 40, height: 40 }}>
-                {localStorage.getItem('userEmail')?.[0]?.toUpperCase() || 'P'}
+                {userInitial}
               </Avatar>
             </IconButton>
           </Box>
