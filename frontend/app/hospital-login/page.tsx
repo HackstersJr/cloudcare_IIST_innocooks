@@ -31,21 +31,32 @@ export default function HospitalLoginPage() {
     }
 
     try {
-      // Demo login - accept demo credentials for now
-      if (hospitalId === 'HOSP001' && password === 'admin123') {
-        setIsLoading(true);
-        // Store hospital session
-        localStorage.setItem('hospitalId', '1');
-        localStorage.setItem('hospitalName', 'City General Hospital');
-        
-        // Simulate network delay
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // Redirect to hospital dashboard
-        router.push('/hospital');
-      } else {
+      // Map of actual seeded hospitals from database (no user logins, using hospital code + password)
+      const hospitalCredentials: Record<string, { password: string; hospitalId: number; name: string }> = {
+        'apollo': { password: 'Hospital@123', hospitalId: 8, name: 'Apollo Hospital, Bangalore' },
+        'fortis': { password: 'Hospital@123', hospitalId: 9, name: 'Fortis Hospital, Mumbai' },
+        'aiims': { password: 'Hospital@123', hospitalId: 10, name: 'AIIMS, Delhi' },
+        'manipal': { password: 'Hospital@123', hospitalId: 11, name: 'Manipal Hospital, Pune' },
+        'max': { password: 'Hospital@123', hospitalId: 12, name: 'Max Super Specialty Hospital, Gurugram' },
+      };
+
+      const hospital = hospitalCredentials[hospitalId.toLowerCase()];
+      
+      if (!hospital || hospital.password !== password) {
         setError('Invalid credentials. Please use the demo credentials shown below.');
+        return;
       }
+
+      setIsLoading(true);
+      // Store hospital session
+      localStorage.setItem('hospitalId', hospital.hospitalId.toString());
+      localStorage.setItem('hospitalName', hospital.name);
+      
+      // Simulate network delay
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Redirect to hospital dashboard
+      router.push('/hospital');
     } catch (err) {
       setError('Login failed. Please try again.');
     } finally {
@@ -164,14 +175,20 @@ export default function HospitalLoginPage() {
                 border: '1px solid rgba(14, 165, 233, 0.2)',
               }}
             >
-              <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
-                Demo Credentials:
+              <Typography variant="caption" color="text.secondary" display="block" gutterBottom fontWeight={600}>
+                🧪 Test Credentials (from seeded database):
               </Typography>
-              <Typography variant="body2" fontFamily="monospace">
-                Hospital ID: HOSP001
+              <Typography variant="body2" fontFamily="monospace" fontSize="0.75rem">
+                <strong>Apollo:</strong> apollo | Hospital@123
               </Typography>
-              <Typography variant="body2" fontFamily="monospace">
-                Password: admin123
+              <Typography variant="body2" fontFamily="monospace" fontSize="0.75rem">
+                <strong>Fortis:</strong> fortis | Hospital@123
+              </Typography>
+              <Typography variant="body2" fontFamily="monospace" fontSize="0.75rem">
+                <strong>AIIMS:</strong> aiims | Hospital@123
+              </Typography>
+              <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
+                (Also: manipal, max)
               </Typography>
             </Box>
           </CardContent>

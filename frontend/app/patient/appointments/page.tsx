@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Box,
   Card,
@@ -38,6 +39,7 @@ import { LocalizationProvider, DatePicker, TimePicker } from '@mui/x-date-picker
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { formatDate } from '@/lib/utils/formatters';
 import type { AppointmentWithDetails } from '@/types/patient';
+import { useAppointments, useCreateAppointment, useCancelAppointment } from '@/lib/hooks/useAppointments';
 
 // Mock data - Replace with actual API calls when backend is ready
 const MOCK_APPOINTMENTS: AppointmentWithDetails[] = [
@@ -160,9 +162,25 @@ const DEPARTMENTS = [
 ];
 
 export default function AppointmentsPage() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState(0);
   const [openNewDialog, setOpenNewDialog] = useState(false);
-  const [appointments, setAppointments] = useState<AppointmentWithDetails[]>(MOCK_APPOINTMENTS);
+  const [patientId, setPatientId] = useState<number | null>(null);
+  
+  // Get patient ID from localStorage
+  useEffect(() => {
+    const storedPatientId = localStorage.getItem('patientId');
+    if (!storedPatientId) {
+      router.push('/login');
+      return;
+    }
+    setPatientId(parseInt(storedPatientId));
+  }, [router]);
+
+  // Fetch appointments using React Query
+  const { data: appointments = [], isLoading, refetch } = useAppointments(patientId || 0, undefined, !!patientId);
+  const createMutation = useCreateAppointment();
+  const cancelMutation = useCancelAppointment();
   
   // New appointment form state
   const [newAppointment, setNewAppointment] = useState({
@@ -224,59 +242,58 @@ export default function AppointmentsPage() {
     }
   };
 
-  const handleCancelAppointment = (id: number) => {
-    setAppointments(
-      appointments.map((apt) =>
-        apt.id === id ? { ...apt, status: 'cancelled' as const } : apt
-      )
-    );
+  const handleCancelAppointment = async (appointmentId: number) => {
+    if (!patientId) return;
+    
+    try {
+      await cancelMutation.mutateAsync({ patientId, appointmentId });
+      refetch();
+    } catch (error) {
+      console.error('Failed to cancel appointment:', error);
+      alert('Failed to cancel appointment');
+    }
   };
 
-  const handleCreateAppointment = () => {
-    const doctor = MOCK_DOCTORS.find((d) => d.id.toString() === newAppointment.doctorId);
-    const hospital = MOCK_HOSPITALS.find((h) => h.id.toString() === newAppointment.hospitalId);
-
-    if (!doctor || !hospital) {
-      alert('Please select a doctor and hospital');
+  const handleCreateAppointment = async () => {
+    if (!patientId) {
+      alert('Patient ID not found');
       return;
     }
 
-    const newApt: AppointmentWithDetails = {
-      id: appointments.length + 1,
-      patientId: 1,
-      doctorId: parseInt(newAppointment.doctorId),
-      hospitalId: parseInt(newAppointment.hospitalId),
-      appointmentDate: newAppointment.date.toISOString().split('T')[0],
-      appointmentTime: newAppointment.time.toTimeString().slice(0, 5),
-      department: newAppointment.department,
-      status: 'scheduled',
-      notes: newAppointment.notes,
-      doctor: {
-        id: doctor.id,
-        name: doctor.name,
-        age: 40,
-        gender: 'Unknown',
-        contact: '+91-9876543210',
-        specializations: doctor.specialization,
-      },
-      hospital: {
-        id: hospital.id,
-        name: hospital.name,
-      },
-    };
+    if (!newAppointment.doctorId || !newAppointment.hospitalId || !newAppointment.department) {
+      alert('Please fill in all required fields');
+      return;
+    }
 
-    setAppointments([newApt, ...appointments]);
-    setOpenNewDialog(false);
-    
-    // Reset form
-    setNewAppointment({
-      doctorId: '',
-      hospitalId: '',
-      department: '',
-      date: new Date(),
-      time: new Date(),
-      notes: '',
-    });
+    try {
+      await createMutation.mutateAsync({
+        patientId,
+        data: {
+          doctorId: parseInt(newAppointment.doctorId),
+          hospitalId: parseInt(newAppointment.hospitalId),
+          appointmentDate: newAppointment.date.toISOString().split('T')[0],
+          appointmentTime: newAppointment.time.toTimeString().slice(0, 5),
+          department: newAppointment.department,
+          notes: newAppointment.notes || undefined,
+        },
+      });
+
+      setOpenNewDialog(false);
+      refetch();
+      
+      // Reset form
+      setNewAppointment({
+        doctorId: '',
+        hospitalId: '',
+        department: '',
+        date: new Date(),
+        time: new Date(),
+        notes: '',
+      });
+    } catch (error) {
+      console.error('Failed to create appointment:', error);
+      alert('Failed to create appointment');
+    }
   };
 
   const filteredAppointments = getFilteredAppointments();

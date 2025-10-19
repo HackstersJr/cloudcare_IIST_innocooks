@@ -21,7 +21,10 @@ from shared.models import (
     BaseResponse,
     RecordResponse,
     PrescriptionResponse,
-    PatientConditionResponse
+    PatientConditionResponse,
+    AppointmentCreate,
+    AppointmentUpdate,
+    AppointmentResponse
 )
 from prisma import Prisma
 from typing import List, Optional
@@ -356,6 +359,154 @@ async def create_prescription(
     )
     
     return new_prescription
+
+
+# ============================================================================
+# APPOINTMENT ENDPOINTS
+# ============================================================================
+
+@app.get("/api/patients/{patient_id}/appointments", response_model=List[AppointmentResponse])
+async def get_patient_appointments(
+    patient_id: int,
+    status: Optional[str] = None,
+    db: Prisma = Depends(get_prisma)
+):
+    """Get all appointments for a patient"""
+    patient = await db.patient.find_unique(where={"id": patient_id})
+    
+    if not patient:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Patient {patient_id} not found"
+        )
+    
+    where_clause = {"patientId": patient_id}
+    if status:
+        where_clause["status"] = status
+    
+    appointments = await db.appointment.find_many(
+        where=where_clause,
+        order={"appointmentDate": "desc"},
+        include={
+            "doctor": True,
+            "hospital": True
+        }
+    )
+    
+    return appointments
+
+
+@app.post("/api/patients/{patient_id}/appointments", response_model=AppointmentResponse, status_code=status.HTTP_201_CREATED)
+async def create_appointment(
+    patient_id: int,
+    doctorId: int,
+    hospitalId: int,
+    appointmentDate: str,
+    appointmentTime: str,
+    department: str,
+    notes: Optional[str] = None,
+    db: Prisma = Depends(get_prisma)
+):
+    """Create a new appointment for a patient"""
+    # Verify patient exists
+    patient = await db.patient.find_unique(where={"id": patient_id})
+    if not patient:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Patient {patient_id} not found"
+        )
+    
+    # Verify doctor exists
+    doctor = await db.doctor.find_unique(where={"id": doctorId})
+    if not doctor:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Doctor {doctorId} not found"
+        )
+    
+    # Verify hospital exists
+    hospital = await db.hospital.find_unique(where={"id": hospitalId})
+    if not hospital:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Hospital {hospitalId} not found"
+        )
+    
+    from datetime import datetime
+    
+    new_appointment = await db.appointment.create(
+        data={
+            "patientId": patient_id,
+            "doctorId": doctorId,
+            "hospitalId": hospitalId,
+            "appointmentDate": datetime.fromisoformat(appointmentDate.split('T')[0]),
+            "appointmentTime": appointmentTime,
+            "department": department,
+            "status": "scheduled",
+            "notes": notes
+        }
+    )
+    
+    return new_appointment
+
+
+@app.put("/api/patients/{patient_id}/appointments/{appointment_id}", response_model=AppointmentResponse)
+async def update_appointment(
+    patient_id: int,
+    appointment_id: int,
+    appointment_data: AppointmentUpdate,
+    db: Prisma = Depends(get_prisma)
+):
+    """Update an appointment"""
+    appointment = await db.appointment.find_unique(where={"id": appointment_id})
+    
+    if not appointment or appointment.patientId != patient_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Appointment {appointment_id} not found for patient {patient_id}"
+        )
+    
+    update_data = {k: v for k, v in appointment_data.dict(exclude_unset=True).items()}
+    
+    # Handle datetime conversion if appointmentDate is provided
+    if "appointmentDate" in update_data and update_data["appointmentDate"]:
+        from datetime import datetime
+        if isinstance(update_data["appointmentDate"], str):
+            update_data["appointmentDate"] = datetime.fromisoformat(update_data["appointmentDate"].split('T')[0])
+    
+    updated_appointment = await db.appointment.update(
+        where={"id": appointment_id},
+        data=update_data
+    )
+    
+    return updated_appointment
+
+
+@app.delete("/api/patients/{patient_id}/appointments/{appointment_id}", response_model=BaseResponse)
+async def delete_appointment(
+    patient_id: int,
+    appointment_id: int,
+    db: Prisma = Depends(get_prisma)
+):
+    """Delete/Cancel an appointment"""
+    appointment = await db.appointment.find_unique(where={"id": appointment_id})
+    
+    if not appointment or appointment.patientId != patient_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Appointment {appointment_id} not found for patient {patient_id}"
+        )
+    
+    # Mark as cancelled instead of deleting
+    await db.appointment.update(
+        where={"id": appointment_id},
+        data={"status": "cancelled"}
+    )
+    
+    return BaseResponse(
+        success=True,
+        message=f"Appointment {appointment_id} cancelled successfully"
+    )
 
 
 # ============================================================================

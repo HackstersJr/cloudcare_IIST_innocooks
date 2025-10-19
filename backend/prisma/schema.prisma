@@ -33,6 +33,7 @@ model Patient {
   doctors         Doctor[]   @relation("PatientDoctors")
   hospitals       Hospital[] @relation("PatientHospitals")
   wearablesData   WearableData[]
+  appointments    Appointment[]
   userLogin       UserLogin? @relation(fields: [userLoginId], references: [id])
   userLoginId     Int? 
 }
@@ -45,6 +46,8 @@ model Doctor {
   contact         String
   specializations String
   patients        Patient[] @relation("PatientDoctors")
+  records         Record[]
+  appointments    Appointment[]
   hospital        Hospital? @relation(fields: [hospitalId], references: [id])
   hospitalId      Int?
   userLogin       UserLogin? @relation(fields: [userLoginId], references: [id])
@@ -52,19 +55,28 @@ model Doctor {
 }
 
 model Hospital {
-  id       Int       @id @default(autoincrement())
-  name     String    @unique
-  doctors  Doctor[]
-  patients Patient[] @relation("PatientHospitals")
+  id           Int           @id @default(autoincrement())
+  name         String        @unique
+  doctors      Doctor[]
+  patients     Patient[]     @relation("PatientHospitals")
+  records      Record[]
+  appointments Appointment[]
 }
 
 model Record {
-  id           Int      @id @default(autoincrement())
-  patient      Patient  @relation(fields: [patientId], references: [id])
-  patientId    Int
-  description  String
-  date         DateTime
-  wearablesData WearableData[]
+  id             Int             @id @default(autoincrement())
+  patient        Patient         @relation(fields: [patientId], references: [id])
+  patientId      Int
+  description    String
+  date           DateTime
+  recordType     String          // Consultation, Lab Test, ECG, X-Ray, Emergency
+  diagnosis      String?
+  treatment      String?
+  doctor         Doctor?         @relation(fields: [doctorId], references: [id])
+  doctorId       Int?
+  hospital       Hospital?       @relation(fields: [hospitalId], references: [id])
+  hospitalId     Int?
+  wearablesData  WearableData[]
 }
 
 model Prescription {
@@ -98,6 +110,23 @@ model WearableData {
   sleepHours  Float?
   oxygenLevel Float?
   description String?
+}
+
+model Appointment {
+  id              Int      @id @default(autoincrement())
+  patient         Patient  @relation(fields: [patientId], references: [id])
+  patientId       Int
+  doctor          Doctor   @relation(fields: [doctorId], references: [id])
+  doctorId        Int
+  hospital        Hospital @relation(fields: [hospitalId], references: [id])
+  hospitalId      Int
+  appointmentDate DateTime
+  appointmentTime String
+  department      String
+  status          String   @default("scheduled") // scheduled, completed, cancelled
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
 
 model UserLogin {

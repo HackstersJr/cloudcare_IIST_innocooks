@@ -183,11 +183,32 @@ async def create_regular_patients(doctors, hospitals):
         )
         
         # Add medical record
+        record_types = ["Consultation", "Lab Test", "ECG", "Consultation", "Lab Test"]
+        diagnoses = [
+            f"Well-controlled {condition}",
+            f"Stable {condition} with good compliance",
+            f"{condition} monitoring - within normal limits",
+            f"Routine {condition} management",
+            f"Follow-up for {condition}"
+        ]
+        treatments = [
+            "Continue current medication regimen",
+            "Maintain lifestyle modifications",
+            "Schedule follow-up in 3 months",
+            "Increase monitoring frequency",
+            "Adjust medication dosage as needed"
+        ]
+        
         await db.record.create(
             data={
                 "patientId": patient.id,
                 "description": f"Routine checkup for {condition}. Patient doing well on current medication.",
-                "date": datetime.now() - timedelta(days=random.randint(1, 30))
+                "date": datetime.now() - timedelta(days=random.randint(1, 30)),
+                "recordType": random.choice(record_types),
+                "diagnosis": random.choice(diagnoses),
+                "treatment": random.choice(treatments),
+                "doctorId": current_doctor.id,
+                "hospitalId": hospital.id
             }
         )
         
@@ -328,7 +349,12 @@ async def create_emergency_patient(doctors, hospitals):
         data={
             "patientId": patient.id,
             "description": "EMERGENCY: Patient reported severe chest pain and irregular heartbeat. ECG shows signs of atrial fibrillation. Immediate cardiology consultation required.",
-            "date": datetime.now() - timedelta(hours=2)
+            "date": datetime.now() - timedelta(hours=2),
+            "recordType": "Emergency",
+            "diagnosis": "Acute Atrial Fibrillation with Rapid Ventricular Response - HR 145bpm",
+            "treatment": "IV Metoprolol administered. Started on Apixaban 5mg BID. Cardiology consultation completed. Patient admitted for observation.",
+            "doctorId": current_doctor.id,
+            "hospitalId": hospital.id
         }
     )
     
@@ -336,7 +362,12 @@ async def create_emergency_patient(doctors, hospitals):
         data={
             "patientId": patient.id,
             "description": "Follow-up after cardiac event. Patient stable on anticoagulant therapy. Continue monitoring.",
-            "date": datetime.now() - timedelta(days=7)
+            "date": datetime.now() - timedelta(days=7),
+            "recordType": "Consultation",
+            "diagnosis": "Post-AFib episode - Stable on anticoagulation therapy",
+            "treatment": "Continue Apixaban 5mg BID. Monitor INR levels weekly. Lifestyle modifications discussed.",
+            "doctorId": current_doctor.id,
+            "hospitalId": hospital.id
         }
     )
     
@@ -466,8 +497,8 @@ async def create_user_logins(patients, doctors):
     
     # Create logins for doctors with exact credentials
     doctor_credentials = [
-        {"email": ".suresh.krishnan@gmail.com", "password": "Doctor@123"},  # Doctor 1
-        {"email": ".meera.rao@outlook.com", "password": "Doctor@123"},      # Doctor 2
+        {"email": "suresh.krishnan@gmail.com", "password": "Doctor@123"},  # Doctor 1
+        {"email": "meera.rao@outlook.com", "password": "Doctor@123"},      # Doctor 2
     ]
     
     for i, doctor in enumerate(doctors[:2]):

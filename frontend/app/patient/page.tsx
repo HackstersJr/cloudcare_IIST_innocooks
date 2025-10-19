@@ -44,9 +44,9 @@ export default function PatientDashboardPage() {
     }
   }, [router]);
 
-  const { data: patient, isLoading: loadingPatient, error: patientError } = usePatient(patientId || 0);
-  const { data: records, isLoading: loadingRecords } = usePatientRecords(patientId || 0);
-  const { data: conditions, isLoading: loadingConditions } = usePatientConditions(patientId || 0);
+  const { data: patient, isLoading: loadingPatient, error: patientError } = usePatient(patientId || 0, !!patientId);
+  const { data: records, isLoading: loadingRecords } = usePatientRecords(patientId || 0, !!patientId);
+  const { data: conditions, isLoading: loadingConditions } = usePatientConditions(patientId || 0, !!patientId);
 
   if (!patientId) {
     return (
@@ -224,7 +224,7 @@ export default function PatientDashboardPage() {
                         {condition.condition}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
-                        Since: {formatDate(condition.startDate, 'PP')}
+                        Since: {formatDate(condition.startDate, 'short')}
                       </Typography>
                     </Paper>
                   ))}
