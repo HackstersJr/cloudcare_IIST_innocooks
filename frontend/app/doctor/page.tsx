@@ -39,6 +39,7 @@ import {
 } from '@/constants/doctor';
 import type { AssignedPatient, EmergencyAlert } from '@/types/doctor';
 
+
 export default function DoctorDashboardPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedAlert, setSelectedAlert] = useState<EmergencyAlert | null>(null);
@@ -109,7 +110,8 @@ export default function DoctorDashboardPage() {
   };
 
   return (
-    <Box>
+    <>
+      <Box>
       {/* Welcome Header */}
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" fontWeight="bold" gutterBottom>
@@ -503,5 +505,7 @@ export default function DoctorDashboardPage() {
         )}
       </Dialog>
     </Box>
+    <AIChat />
+    </>
   );
 }

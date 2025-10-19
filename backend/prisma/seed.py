@@ -1,532 +1,462 @@
 """
-CloudCare Mock Data Seed Script
-Creates 5 Indian patients, 5 doctors, and 5 hospitals with realistic interdependencies
-One emergency patient with specific doctor history
+CloudCare Seed Script - Frontend Mock Data
+Seeding complete data from frontend/lib/mockData.ts, constants/doctor.ts, constants/hospital.ts
 """
 
 import asyncio
 from datetime import datetime, timedelta
 from prisma import Prisma
-import random
 
 db = Prisma()
 
-# Indian Names and Data
-INDIAN_MALE_NAMES = [
-    "Rahul Sharma", "Amit Kumar", "Raj Patel", "Arjun Singh", "Vikram Reddy"
-]
 
-INDIAN_FEMALE_NAMES = [
-    "Priya Gupta", "Sneha Mehta", "Anjali Desai", "Kavya Nair", "Pooja Iyer"
-]
-
-INDIAN_DOCTORS = [
-    {"name": "Dr. Suresh Krishnan", "age": 45, "gender": "Male", "specializations": "Cardiology"},
-    {"name": "Dr. Meera Rao", "age": 38, "gender": "Female", "specializations": "General Medicine"},
-    {"name": "Dr. Rajesh Gupta", "age": 52, "gender": "Male", "specializations": "Emergency Medicine"},
-    {"name": "Dr. Lakshmi Iyer", "age": 41, "gender": "Female", "specializations": "Pediatrics"},
-    {"name": "Dr. Anil Verma", "age": 48, "gender": "Male", "specializations": "Orthopedics"},
-]
-
-INDIAN_HOSPITALS = [
-    "Apollo Hospital, Bangalore",
-    "Fortis Hospital, Mumbai",
-    "AIIMS, Delhi",
-    "Manipal Hospital, Pune",
-    "Max Super Specialty Hospital, Gurugram"
-]
-
-INDIAN_CITIES = ["Mumbai", "Delhi", "Bangalore", "Chennai", "Kolkata", "Pune", "Hyderabad"]
-INDIAN_PHONE_PREFIX = ["+91-98", "+91-99", "+91-97", "+91-96", "+91-95"]
-
-MEDICAL_CONDITIONS = [
-    "Type 2 Diabetes",
-    "Hypertension",
-    "Asthma",
-    "Arthritis",
-    "Thyroid Disorder"
-]
-
-MEDICATIONS = [
-    {"name": "Metformin", "dosage": "500mg twice daily"},
-    {"name": "Lisinopril", "dosage": "10mg once daily"},
-    {"name": "Salbutamol", "dosage": "2 puffs as needed"},
-    {"name": "Paracetamol", "dosage": "650mg thrice daily"},
-    {"name": "Levothyroxine", "dosage": "50mcg once daily"}
-]
-
-
-def generate_phone():
-    """Generate Indian phone number"""
-    prefix = random.choice(INDIAN_PHONE_PREFIX)
-    suffix = ''.join([str(random.randint(0, 9)) for _ in range(8)])
-    return f"{prefix}{suffix}"
-
-
-def generate_email(name):
-    """Generate email from name"""
-    name_part = name.lower().replace(" ", ".").replace("dr.", "")
-    domains = ["gmail.com", "yahoo.in", "hotmail.com", "outlook.com"]
-    return f"{name_part}@{random.choice(domains)}"
+async def clear_database():
+    """Clear all existing data from database"""
+    print("🗑️  Clearing existing database data...")
+    
+    # Delete in correct order to respect foreign keys
+    await db.wearabledata.delete_many()
+    await db.record.delete_many()
+    await db.prescription.delete_many()
+    await db.patientcondition.delete_many()
+    
+    # Disconnect many-to-many relationships
+    patients = await db.patient.find_many()
+    for patient in patients:
+        await db.patient.update(
+            where={"id": patient.id},
+            data={
+                "doctors": {"set": []},
+                "hospitals": {"set": []}
+            }
+        )
+    
+    # Delete main entities
+    await db.patient.delete_many()
+    await db.doctor.delete_many()
+    await db.hospital.delete_many()
+    await db.userlogin.delete_many()
+    
+    print("   ✅ All existing data cleared")
 
 
 async def create_hospitals():
-    """Create 5 Indian hospitals"""
+    """Create hospitals from frontend mockData"""
     print("🏥 Creating hospitals...")
     hospitals = []
-    for hospital_name in INDIAN_HOSPITALS:
-        hospital = await db.hospital.create(
-            data={
-                "name": hospital_name
-            }
-        )
+    
+    hospital_data = [
+        "City General Hospital",
+        "Metro Medical Center", 
+        "Sunrise Clinic"
+    ]
+    
+    for name in hospital_data:
+        hospital = await db.hospital.create(data={"name": name})
         hospitals.append(hospital)
-        print(f"   ✅ Created: {hospital.name}")
+        print(f"   ✅ {name}")
+    
     return hospitals
 
 
 async def create_doctors(hospitals):
-    """Create 5 Indian doctors"""
+    """Create doctors from frontend mockData"""
     print("\n👨‍⚕️ Creating doctors...")
     doctors = []
-    for idx, doctor_data in enumerate(INDIAN_DOCTORS):
-        # Assign to a hospital
-        hospital = hospitals[idx % len(hospitals)]
-        
+    
+    doctor_data = [
+        {"name": "Dr. Sarah Johnson", "age": 45, "gender": "Female", "contact": "+91-9876543210", "specializations": "Cardiology, Internal Medicine"},
+        {"name": "Dr. Amit Patel", "age": 38, "gender": "Male", "contact": "+91-9876543211", "specializations": "General Medicine"},
+        {"name": "Dr. Priya Sharma", "age": 42, "gender": "Female", "contact": "+91-9876543212", "specializations": "Orthopedics"},
+        {"name": "Dr. Rajesh Kumar", "age": 50, "gender": "Male", "contact": "+91-9876543213", "specializations": "Neurology"},
+    ]
+    
+    for idx, data in enumerate(doctor_data):
         doctor = await db.doctor.create(
             data={
-                "name": doctor_data["name"],
-                "age": doctor_data["age"],
-                "gender": doctor_data["gender"],
-                "contact": generate_phone(),
-                "specializations": doctor_data["specializations"],
-                "hospitalId": hospital.id
+                "name": data["name"],
+                "age": data["age"],
+                "gender": data["gender"],
+                "contact": data["contact"],
+                "specializations": data["specializations"],
+                "hospitalId": hospitals[idx % len(hospitals)].id
             }
         )
         doctors.append(doctor)
-        print(f"   ✅ Created: {doctor.name} ({doctor.specializations}) at {hospital.name}")
+        print(f"   ✅ {data['name']} - {data['specializations']}")
+    
     return doctors
 
 
-async def create_regular_patients(doctors, hospitals):
-    """Create 4 regular patients"""
-    print("\n👥 Creating regular patients...")
-    patients = []
+async def create_main_patient(doctors, hospitals):
+    """Create main patient (Rajesh Kumar) from frontend mockData"""
+    print("\n🚨 Creating main patient (Rajesh Kumar)...")
     
-    for i in range(4):
-        # Mix of male and female names
-        if i % 2 == 0:
-            name = INDIAN_MALE_NAMES[i // 2]
-            gender = "Male"
-        else:
-            name = INDIAN_FEMALE_NAMES[i // 2]
-            gender = "Female"
-        
-        age = random.randint(25, 65)
-        
-        # Create patient
-        patient = await db.patient.create(
-            data={
-                "name": name,
-                "age": age,
-                "gender": gender,
-                "contact": generate_phone(),
-                "familyContact": generate_phone(),
-                "emergency": False,
-                "aiAnalysis": None
-            }
-        )
-        
-        # Assign current doctor
-        current_doctor = doctors[i % len(doctors)]
-        await db.patient.update(
-            where={"id": patient.id},
-            data={
-                "doctors": {
-                    "connect": [{"id": current_doctor.id}]
-                }
-            }
-        )
-        
-        # Assign hospital
-        hospital = hospitals[i % len(hospitals)]
-        await db.patient.update(
-            where={"id": patient.id},
-            data={
-                "hospitals": {
-                    "connect": [{"id": hospital.id}]
-                }
-            }
-        )
-        
-        # Add medical condition
-        condition = MEDICAL_CONDITIONS[i]
+    # Create patient
+    patient = await db.patient.create(
+        data={
+            "name": "Rajesh Kumar",
+            "age": 58,
+            "gender": "Male",
+            "contact": "+91-9876543210",
+            "familyContact": "+91-9876543211",
+            "emergency": True,
+            "aiAnalysis": "AI detected elevated cardiovascular risk driven by hypertension history and recent heart-rate variability trends. Recommend recording BP twice daily, staying hydrated, and scheduling a cardiology follow-up this week."
+        }
+    )
+    
+    # Link to doctors and hospital
+    await db.patient.update(
+        where={"id": patient.id},
+        data={
+            "doctors": {"connect": [{"id": doctors[0].id}]},
+            "hospitals": {"connect": [{"id": hospitals[0].id}]}
+        }
+    )
+    
+    # Add conditions
+    conditions_data = [
+        {"condition": "Hypertension (Stage 1)", "startDate": datetime(2022, 3, 12), "endDate": None},
+        {"condition": "Type 2 Diabetes Mellitus", "startDate": datetime(2021, 7, 1), "endDate": None},
+        {"condition": "Generalized Anxiety Disorder", "startDate": datetime(2024, 1, 15), "endDate": datetime(2024, 9, 1)},
+    ]
+    
+    for cond in conditions_data:
         await db.patientcondition.create(
             data={
                 "patientId": patient.id,
-                "condition": condition,
-                "startDate": datetime.now() - timedelta(days=random.randint(365, 1825)),
-                "endDate": None
+                "condition": cond["condition"],
+                "startDate": cond["startDate"],
+                "endDate": cond["endDate"]
             }
         )
-        
-        # Add prescription
-        med = MEDICATIONS[i]
+    
+    # Add prescriptions
+    prescriptions_data = [
+        {"medication": "Amlodipine", "dosage": "5mg", "startDate": datetime(2025, 10, 1), "endDate": datetime(2025, 11, 1)},
+        {"medication": "Metformin", "dosage": "500mg", "startDate": datetime(2025, 9, 15), "endDate": datetime(2025, 12, 15)},
+        {"medication": "Aspirin", "dosage": "75mg", "startDate": datetime(2025, 10, 10), "endDate": None},
+        {"medication": "Atorvastatin", "dosage": "10mg", "startDate": datetime(2025, 9, 20), "endDate": None},
+        {"medication": "Omeprazole", "dosage": "20mg", "startDate": datetime(2025, 8, 1), "endDate": datetime(2025, 9, 1)},
+        {"medication": "Losartan", "dosage": "50mg", "startDate": datetime(2025, 7, 15), "endDate": datetime(2025, 8, 15)},
+    ]
+    
+    for presc in prescriptions_data:
         await db.prescription.create(
             data={
                 "patientId": patient.id,
-                "medication": med["name"],
-                "dosage": med["dosage"],
-                "startDate": datetime.now() - timedelta(days=random.randint(30, 180)),
-                "endDate": None
+                "medication": presc["medication"],
+                "dosage": presc["dosage"],
+                "startDate": presc["startDate"],
+                "endDate": presc["endDate"]
             }
         )
-        
-        # Add medical record
+    
+    # Add medical records  
+    records_data = [
+        {
+            "recordType": "Consultation",
+            "description": "Cardiology review • systolic BP averaged 145 mmHg",
+            "diagnosis": "Hypertension not fully controlled",
+            "treatment": "Continue Amlodipine 5mg daily, add evening walk regimen",
+            "date": datetime(2025, 10, 15, 10, 0),
+            "doctorId": doctors[0].id,
+            "hospitalId": hospitals[0].id
+        },
+        {
+            "recordType": "Lab Test",
+            "description": "Complete lipid profile and HbA1c screening",
+            "diagnosis": "LDL 145 mg/dL • HbA1c 7.2%",
+            "treatment": "Maintain Metformin, start Atorvastatin 10mg nightly",
+            "date": datetime(2025, 10, 10, 8, 30),
+            "doctorId": doctors[1].id,
+            "hospitalId": hospitals[0].id
+        },
+        {
+            "recordType": "Emergency",
+            "description": "Emergency visit for chest discomfort and dizziness",
+            "diagnosis": "Ruled out myocardial infarction; observed anxiety episode",
+            "treatment": "Observation for 4 hours, prescribed short-term anxiolytic",
+            "date": datetime(2025, 9, 5, 22, 30),
+            "doctorId": doctors[2].id,
+            "hospitalId": hospitals[1].id
+        }
+    ]
+    
+    for rec in records_data:
         await db.record.create(
             data={
                 "patientId": patient.id,
-                "description": f"Routine checkup for {condition}. Patient doing well on current medication.",
-                "date": datetime.now() - timedelta(days=random.randint(1, 30))
+                "recordType": rec["recordType"],
+                "description": rec["description"],
+                "diagnosis": rec["diagnosis"],
+                "treatment": rec["treatment"],
+                "date": rec["date"],
+                "doctorId": rec["doctorId"],
+                "hospitalId": rec["hospitalId"]
             }
         )
-        
-        # Add wearable data
-        for _ in range(5):
-            await db.wearabledata.create(
-                data={
-                    "patientId": patient.id,
-                    "timestamp": datetime.now() - timedelta(hours=random.randint(1, 72)),
-                    "heartRate": random.randint(60, 85),
-                    "steps": random.randint(5000, 12000),
-                    "sleepHours": round(random.uniform(6.5, 8.5), 1),
-                    "oxygenLevel": round(random.uniform(96.0, 99.0), 1),
-                    "description": "Synced from smartwatch"
-                }
-            )
-        
-        patients.append(patient)
-        print(f"   ✅ {name} ({age}y {gender}) - {condition} - Dr. {current_doctor.name} - {hospital.name}")
     
-    return patients
-
-
-async def create_emergency_patient(doctors, hospitals):
-    """
-    Create THE MAIN DEMO PATIENT with emergency flag
-    - Has 2 past doctors
-    - Has 1 current doctor  
-    - In one hospital
-    - Emergency flag = True
-    """
-    print("\n🚨 Creating EMERGENCY PATIENT (Main Demo)...")
+    # Add wearable data
+    wearables_data = [
+        {"timestamp": datetime.now() - timedelta(days=1), "heartRate": 72, "steps": 8500, "sleepHours": 7.5, "oxygenLevel": 98.0, "description": "Normal readings"},
+        {"timestamp": datetime.now() - timedelta(days=2), "heartRate": 75, "steps": 9200, "sleepHours": 7.0, "oxygenLevel": 97.5, "description": "Normal readings"},
+        {"timestamp": datetime.now() - timedelta(days=3), "heartRate": 70, "steps": 7800, "sleepHours": 8.0, "oxygenLevel": 98.5, "description": "Normal readings"},
+    ]
     
-    name = "Rajesh Kumar"
-    age = 58
-    gender = "Male"
-    
-    # Create emergency patient
-    patient = await db.patient.create(
-        data={
-            "name": name,
-            "age": age,
-            "gender": gender,
-            "contact": "+91-9845123456",
-            "familyContact": "+91-9876543210",
-            "emergency": True,  # EMERGENCY FLAG
-            "aiAnalysis": "AI detected abnormal heart rhythm patterns. Immediate cardiac evaluation recommended."
-        }
-    )
-    
-    # Assign 3 doctors (2 past + 1 current)
-    # Past Doctor 1 - Dr. Meera Rao (was treating 1 year ago)
-    past_doctor_1 = doctors[1]  # Dr. Meera Rao
-    
-    # Past Doctor 2 - Dr. Lakshmi Iyer (was treating 6 months ago)
-    past_doctor_2 = doctors[3]  # Dr. Lakshmi Iyer
-    
-    # Current Doctor - Dr. Suresh Krishnan (Cardiologist - current)
-    current_doctor = doctors[0]  # Dr. Suresh Krishnan
-    
-    # Connect all doctors
-    await db.patient.update(
-        where={"id": patient.id},
-        data={
-            "doctors": {
-                "connect": [
-                    {"id": past_doctor_1.id},
-                    {"id": past_doctor_2.id},
-                    {"id": current_doctor.id}
-                ]
+    for wear in wearables_data:
+        await db.wearabledata.create(
+            data={
+                "patientId": patient.id,
+                "timestamp": wear["timestamp"],
+                "heartRate": wear["heartRate"],
+                "steps": wear["steps"],
+                "sleepHours": wear["sleepHours"],
+                "oxygenLevel": wear["oxygenLevel"],
+                "description": wear["description"]
             }
-        }
-    )
+        )
     
-    # Assign to hospital (Apollo Hospital)
-    hospital = hospitals[0]
-    await db.patient.update(
-        where={"id": patient.id},
-        data={
-            "hospitals": {
-                "connect": [{"id": hospital.id}]
-            }
-        }
-    )
-    
-    # Add serious conditions
-    await db.patientcondition.create(
-        data={
-            "patientId": patient.id,
-            "condition": "Coronary Artery Disease",
-            "startDate": datetime.now() - timedelta(days=730),
-            "endDate": None
-        }
-    )
-    
-    await db.patientcondition.create(
-        data={
-            "patientId": patient.id,
-            "condition": "Atrial Fibrillation",
-            "startDate": datetime.now() - timedelta(days=90),
-            "endDate": None
-        }
-    )
-    
-    # Add multiple prescriptions
-    await db.prescription.create(
-        data={
-            "patientId": patient.id,
-            "medication": "Aspirin",
-            "dosage": "75mg once daily",
-            "startDate": datetime.now() - timedelta(days=730),
-            "endDate": None
-        }
-    )
-    
-    await db.prescription.create(
-        data={
-            "patientId": patient.id,
-            "medication": "Atorvastatin",
-            "dosage": "20mg once daily",
-            "startDate": datetime.now() - timedelta(days=730),
-            "endDate": None
-        }
-    )
-    
-    await db.prescription.create(
-        data={
-            "patientId": patient.id,
-            "medication": "Apixaban",
-            "dosage": "5mg twice daily",
-            "startDate": datetime.now() - timedelta(days=90),
-            "endDate": None
-        }
-    )
-    
-    # Add emergency medical records
-    await db.record.create(
-        data={
-            "patientId": patient.id,
-            "description": "EMERGENCY: Patient reported severe chest pain and irregular heartbeat. ECG shows signs of atrial fibrillation. Immediate cardiology consultation required.",
-            "date": datetime.now() - timedelta(hours=2)
-        }
-    )
-    
-    await db.record.create(
-        data={
-            "patientId": patient.id,
-            "description": "Follow-up after cardiac event. Patient stable on anticoagulant therapy. Continue monitoring.",
-            "date": datetime.now() - timedelta(days=7)
-        }
-    )
-    
-    # Add critical wearable data (showing emergency)
-    await db.wearabledata.create(
-        data={
-            "patientId": patient.id,
-            "timestamp": datetime.now() - timedelta(hours=2),
-            "heartRate": 145,  # ELEVATED
-            "steps": 150,
-            "sleepHours": 3.2,  # LOW
-            "oxygenLevel": 92.0,  # LOW
-            "description": "⚠️ ALERT: Abnormal heart rate detected by smartwatch"
-        }
-    )
-    
-    await db.wearabledata.create(
-        data={
-            "patientId": patient.id,
-            "timestamp": datetime.now() - timedelta(hours=1),
-            "heartRate": 138,
-            "steps": 200,
-            "sleepHours": None,
-            "oxygenLevel": 93.0,
-            "description": "⚠️ ALERT: Heart rate still elevated"
-        }
-    )
-    
-    # Recent normal data
-    await db.wearabledata.create(
-        data={
-            "patientId": patient.id,
-            "timestamp": datetime.now() - timedelta(minutes=30),
-            "heartRate": 78,  # Normalized after treatment
-            "steps": 500,
-            "sleepHours": None,
-            "oxygenLevel": 97.0,
-            "description": "Heart rate normalized after intervention"
-        }
-    )
-    
-    print(f"   🚨 EMERGENCY PATIENT: {name} ({age}y {gender})")
-    print(f"   📍 Hospital: {hospital.name}")
-    print(f"   👨‍⚕️ Past Doctors:")
-    print(f"      - {past_doctor_1.name} (treated 1 year ago)")
-    print(f"      - {past_doctor_2.name} (treated 6 months ago)")
-    print(f"   👨‍⚕️ Current Doctor: {current_doctor.name} (Cardiologist)")
-    print(f"   ❤️ Conditions: Coronary Artery Disease, Atrial Fibrillation")
-    print(f"   💊 Medications: Aspirin, Atorvastatin, Apixaban")
-    print(f"   🤖 AI Analysis: {patient.aiAnalysis}")
+    print(f"   ✅ Rajesh Kumar (58y Male) - Emergency: TRUE")
+    print(f"   📍 Conditions: 3 | Prescriptions: 6 | Records: 3 | Wearables: 3")
     
     return patient
 
 
-async def create_user_logins(patients, doctors):
-    """Create login credentials for ALL 7 patients and doctors matching CREDENTIALS_QUICK_REF.md"""
-    print("\n🔐 Creating user logins...")
+async def create_doctor_assigned_patients(doctors, hospitals):
+    """Create patients for doctor dashboard from constants/doctor.ts"""
+    print("\n👥 Creating doctor-assigned patients...")
+    patients = []
     
-    # Create logins for all patients with exact credentials from CREDENTIALS_QUICK_REF.md
-    patient_credentials = [
-        {"email": "rahul.sharma@yahoo.in", "password": "Demo@123"},        # Patient 1
-        {"email": "priya.gupta@gmail.com", "password": "Demo@123"},        # Patient 2
-        {"email": "patient3@cloudcare.local", "password": "Demo@123"},     # Patient 3 (Amit Kumar)
-        {"email": "patient4@cloudcare.local", "password": "Demo@123"},     # Patient 4 (Sneha Mehta)
-        {"email": "patient5@cloudcare.local", "password": "Demo@123"},     # Patient 5 (Rajesh Kumar - Emergency)
+    patients_data = [
+        {
+            "name": "John Smith", "age": 45, "gender": "Male",
+            "contact": "+1 (555) 234-5678", "familyContact": "+1 (555) 234-5679",
+            "emergency": False, "aiAnalysis": None,
+            "condition": "Hypertension"
+        },
+        {
+            "name": "Emily Davis", "age": 32, "gender": "Female",
+            "contact": "+1 (555) 345-6789", "familyContact": "+1 (555) 345-6790",
+            "emergency": False, "aiAnalysis": None,
+            "condition": "Diabetes Type 2"
+        },
+        {
+            "name": "Michael Brown", "age": 58, "gender": "Male",
+            "contact": "+1 (555) 456-7890", "familyContact": "+1 (555) 456-7891",
+            "emergency": True, "aiAnalysis": "Cardiac risk detected - immediate attention required",
+            "condition": "Cardiac Arrhythmia"
+        },
+        {
+            "name": "Sarah Johnson", "age": 67, "gender": "Female",
+            "contact": "+1 (555) 567-8901", "familyContact": "+1 (555) 567-8902",
+            "emergency": False, "aiAnalysis": None,
+            "condition": "Hypertension, High Cholesterol"
+        },
+        {
+            "name": "David Wilson", "age": 55, "gender": "Male",
+            "contact": "+1 (555) 678-9012", "familyContact": "+1 (555) 678-9013",
+            "emergency": False, "aiAnalysis": None,
+            "condition": "COPD"
+        },
     ]
     
-    for i, patient in enumerate(patients[:5]):  # First 5 patients from seed
-        creds = patient_credentials[i]
-        user = await db.userlogin.create(
+    for idx, data in enumerate(patients_data):
+        patient = await db.patient.create(
             data={
-                "email": creds["email"],
-                "password": creds["password"]
+                "name": data["name"],
+                "age": data["age"],
+                "gender": data["gender"],
+                "contact": data["contact"],
+                "familyContact": data["familyContact"],
+                "emergency": data["emergency"],
+                "aiAnalysis": data["aiAnalysis"]
             }
         )
         
-        # Link to patient
+        # Link to first doctor (Dr. Sarah Johnson)
         await db.patient.update(
             where={"id": patient.id},
-            data={"userLoginId": user.id}
-        )
-        
-        print(f"   ✅ Patient login: {creds['email']} (password: {creds['password']})")
-    
-    # Add Patient 6 and 7 (John Doe and Mobile Test User)
-    print("\n👥 Adding additional patients...")
-    
-    # Patient 6: John Doe
-    user6 = await db.userlogin.create(
-        data={
-            "email": "patient6@cloudcare.local",
-            "password": "Demo@123"
-        }
-    )
-    patient6 = await db.patient.create(
-        data={
-            "name": "John Doe",
-            "age": 35,
-            "gender": "Male",
-            "contact": "+91-9876543210",
-            "familyContact": "+91-9876543211",
-            "emergency": False,
-            "userLoginId": user6.id
-        }
-    )
-    print(f"   ✅ Patient 6: John Doe - patient6@cloudcare.local (password: Demo@123)")
-    
-    # Patient 7: Mobile Test User
-    user7 = await db.userlogin.create(
-        data={
-            "email": "patient7@cloudcare.local",
-            "password": "test123"
-        }
-    )
-    patient7 = await db.patient.create(
-        data={
-            "name": "Mobile Test User",
-            "age": 28,
-            "gender": "Male",
-            "contact": "+91-9876543212",
-            "familyContact": "+91-9876543213",
-            "emergency": False,
-            "userLoginId": user7.id
-        }
-    )
-    print(f"   ✅ Patient 7: Mobile Test User - patient7@cloudcare.local (password: test123)")
-    
-    # Create logins for doctors with exact credentials
-    doctor_credentials = [
-        {"email": ".suresh.krishnan@gmail.com", "password": "Doctor@123"},  # Doctor 1
-        {"email": ".meera.rao@outlook.com", "password": "Doctor@123"},      # Doctor 2
-    ]
-    
-    for i, doctor in enumerate(doctors[:2]):
-        creds = doctor_credentials[i]
-        user = await db.userlogin.create(
             data={
-                "email": creds["email"],
-                "password": creds["password"]
+                "doctors": {"connect": [{"id": doctors[0].id}]},
+                "hospitals": {"connect": [{"id": hospitals[0].id}]}
             }
         )
         
-        # Link to doctor
-        await db.doctor.update(
-            where={"id": doctor.id},
-            data={"userLoginId": user.id}
+        # Add condition
+        await db.patientcondition.create(
+            data={
+                "patientId": patient.id,
+                "condition": data["condition"],
+                "startDate": datetime.now() - timedelta(days=365),
+                "endDate": None
+            }
         )
         
-        print(f"   ✅ Doctor login: {creds['email']} (password: {creds['password']})")
+        # Add some wearable data
+        await db.wearabledata.create(
+            data={
+                "patientId": patient.id,
+                "timestamp": datetime.now() - timedelta(hours=2),
+                "heartRate": 145 if data["emergency"] else 75,
+                "steps": 150 if data["emergency"] else 6000,
+                "sleepHours": 3.2 if data["emergency"] else 7.0,
+                "oxygenLevel": 92.0 if data["emergency"] else 98.0,
+                "description": "⚠️ ALERT: Abnormal readings" if data["emergency"] else "Normal readings"
+            }
+        )
+        
+        patients.append(patient)
+        print(f"   ✅ {data['name']} ({data['age']}y {data['gender']}) - {data['condition']}")
+    
+    return patients
+
+
+async def create_hospital_emergency_patients(doctors, hospitals):
+    """Create emergency patients for hospital dashboard"""
+    print("\n🚨 Creating hospital emergency patients...")
+    patients = []
+    
+    emergency_data = [
+        {"name": "John Anderson", "age": 65, "gender": "Male", "contact": "+1 (555) 100-0001", "familyContact": "+1 (555) 100-0002", "condition": "Cardiac Arrest"},
+        {"name": "Maria Garcia", "age": 42, "gender": "Female", "contact": "+1 (555) 100-0003", "familyContact": "+1 (555) 100-0004", "condition": "Severe Trauma"},
+        {"name": "Robert Johnson", "age": 58, "gender": "Male", "contact": "+1 (555) 100-0005", "familyContact": "+1 (555) 100-0006", "condition": "Stroke Symptoms"},
+        {"name": "Lisa Thompson", "age": 35, "gender": "Female", "contact": "+1 (555) 100-0007", "familyContact": "+1 (555) 100-0008", "condition": "Severe Allergic Reaction"},
+        {"name": "David Martinez", "age": 52, "gender": "Male", "contact": "+1 (555) 100-0009", "familyContact": "+1 (555) 100-0010", "condition": "Respiratory Distress"},
+        {"name": "Jennifer Lee", "age": 40, "gender": "Female", "contact": "+1 (555) 100-0011", "familyContact": "+1 (555) 100-0012", "condition": "Head Injury"},
+        {"name": "William Brown", "age": 60, "gender": "Male", "contact": "+1 (555) 100-0013", "familyContact": "+1 (555) 100-0014", "condition": "Chest Pain"},
+        {"name": "Sarah Davis", "age": 28, "gender": "Female", "contact": "+1 (555) 100-0015", "familyContact": "+1 (555) 100-0016", "condition": "Fracture"},
+        {"name": "Michael Wilson", "age": 45, "gender": "Male", "contact": "+1 (555) 100-0017", "familyContact": "+1 (555) 100-0018", "condition": "Abdominal Pain"},
+        {"name": "Emily Taylor", "age": 33, "gender": "Female", "contact": "+1 (555) 100-0019", "familyContact": "+1 (555) 100-0020", "condition": "Minor Burns"},
+    ]
+    
+    for idx, data in enumerate(emergency_data):
+        patient = await db.patient.create(
+            data={
+                "name": data["name"],
+                "age": data["age"],
+                "gender": data["gender"],
+                "contact": data["contact"],
+                "familyContact": data["familyContact"],
+                "emergency": True,
+                "aiAnalysis": f"Emergency case: {data['condition']}"
+            }
+        )
+        
+        # Link to doctor and hospital
+        await db.patient.update(
+            where={"id": patient.id},
+            data={
+                "doctors": {"connect": [{"id": doctors[idx % len(doctors)].id}]},
+                "hospitals": {"connect": [{"id": hospitals[0].id}]}
+            }
+        )
+        
+        # Add condition
+        await db.patientcondition.create(
+            data={
+                "patientId": patient.id,
+                "condition": data["condition"],
+                "startDate": datetime.now() - timedelta(hours=idx + 1),
+                "endDate": None
+            }
+        )
+        
+        # Add emergency record
+        await db.record.create(
+            data={
+                "patientId": patient.id,
+                "recordType": "Emergency",
+                "description": f"Emergency admission: {data['condition']}. Patient admitted {idx + 1} hours ago. In treatment.",
+                "diagnosis": data['condition'],
+                "treatment": "Emergency stabilization in progress",
+                "date": datetime.now() - timedelta(hours=idx + 1),
+                "doctorId": doctors[idx % len(doctors)].id,
+                "hospitalId": hospitals[0].id
+            }
+        )
+        
+        patients.append(patient)
+        print(f"   ✅ {data['name']} - {data['condition']}")
+    
+    return patients
+
+
+async def create_user_logins(main_patient, doctors):
+    """Create user logins for main patient and doctors"""
+    print("\n🔐 Creating user logins...")
+    
+    # Main patient login
+    user1 = await db.userlogin.create(
+        data={
+            "email": "rajesh.kumar@cloudcare.local",
+            "password": "patient123"
+        }
+    )
+    await db.patient.update(
+        where={"id": main_patient.id},
+        data={"userLoginId": user1.id}
+    )
+    print(f"   ✅ Patient: rajesh.kumar@cloudcare.local (password: patient123)")
+    
+    # Doctor logins
+    doctor_emails = [
+        "sarah.johnson@cloudcare.com",
+        "amit.patel@cloudcare.com"
+    ]
+    
+    for idx in range(2):
+        user = await db.userlogin.create(
+            data={
+                "email": doctor_emails[idx],
+                "password": "doctor123"
+            }
+        )
+        await db.doctor.update(
+            where={"id": doctors[idx].id},
+            data={"userLoginId": user.id}
+        )
+        print(f"   ✅ Doctor: {doctor_emails[idx]} (password: doctor123)")
 
 
 async def seed_database():
     """Main seeding function"""
-    print("🌱 Starting database seeding with Indian mock data...\n")
+    print("🌱 Starting database seeding with frontend mock data...\n")
     
     await db.connect()
     
     try:
-        # Create entities in order
+        # Clear existing data first
+        await clear_database()
+        
+        # Create all entities
         hospitals = await create_hospitals()
         doctors = await create_doctors(hospitals)
-        regular_patients = await create_regular_patients(doctors, hospitals)
-        emergency_patient = await create_emergency_patient(doctors, hospitals)
+        main_patient = await create_main_patient(doctors, hospitals)
+        doctor_patients = await create_doctor_assigned_patients(doctors, hospitals)
+        hospital_patients = await create_hospital_emergency_patients(doctors, hospitals)
+        await create_user_logins(main_patient, doctors)
         
-        all_patients = regular_patients + [emergency_patient]
-        await create_user_logins(all_patients, doctors)
-        
-        print("\n" + "="*60)
+        print("\n" + "="*70)
         print("✅ DATABASE SEEDING COMPLETED SUCCESSFULLY!")
-        print("="*60)
+        print("="*70)
         print(f"\n📊 Summary:")
         print(f"   • Hospitals: {len(hospitals)}")
         print(f"   • Doctors: {len(doctors)} (2 with logins)")
-        print(f"   • Regular Patients: {len(regular_patients)}")
-        print(f"   • Emergency Patient: 1 (Rajesh Kumar)")
-        print(f"   • Additional Patients: 2 (John Doe, Mobile Test User)")
-        print(f"   • Total Patients: 7 (all with login credentials)")
-        print(f"\n🚨 MAIN DEMO PATIENT:")
-        print(f"   Name: Rajesh Kumar (ID: {emergency_patient.id})")
-        print(f"   Emergency: TRUE")
-        print(f"   Current Doctor: Dr. Suresh Krishnan (Cardiology)")
-        print(f"   Past Doctors: Dr. Meera Rao, Dr. Lakshmi Iyer")
-        print(f"   Hospital: Apollo Hospital, Bangalore")
-        print(f"\n📱 HCGateway App Login:")
-        print(f"   Recommended: Username=7, Password=test123")
-        print(f"   Alternative: Username=1-6, Password=Demo@123")
-        print("\n🎯 Ready for demo and testing!")
+        print(f"   • Main Patient: 1 (Rajesh Kumar - with login)")
+        print(f"   • Doctor Dashboard Patients: {len(doctor_patients)}")
+        print(f"   • Hospital Emergency Patients: {len(hospital_patients)}")
+        print(f"   • Total Patients: {1 + len(doctor_patients) + len(hospital_patients)}")
+        print(f"\n🔐 Login Credentials:")
+        print(f"   Patient: rajesh.kumar@cloudcare.local / patient123")
+        print(f"   Doctor 1: sarah.johnson@cloudcare.com / doctor123")
+        print(f"   Doctor 2: amit.patel@cloudcare.com / doctor123")
+        print("\n🎯 Ready for frontend integration!")
         
     except Exception as e:
         print(f"\n❌ Error during seeding: {e}")
+        import traceback
+        traceback.print_exc()
         raise
     finally:
         await db.disconnect()

@@ -38,115 +38,13 @@ import { LocalizationProvider, DatePicker, TimePicker } from '@mui/x-date-picker
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { formatDate } from '@/lib/utils/formatters';
 import type { AppointmentWithDetails } from '@/types/patient';
-
-// Mock data - Replace with actual API calls when backend is ready
-const MOCK_APPOINTMENTS: AppointmentWithDetails[] = [
-  {
-    id: 1,
-    patientId: 1,
-    doctorId: 1,
-    hospitalId: 1,
-    appointmentDate: '2025-10-25',
-    appointmentTime: '10:00',
-    department: 'Cardiology',
-    status: 'scheduled',
-    notes: 'Regular checkup for blood pressure',
-    doctor: {
-      id: 1,
-      name: 'Dr. Sarah Johnson',
-      age: 45,
-      gender: 'Female',
-      contact: '+91-9876543210',
-      specializations: 'Cardiology, Internal Medicine',
-    },
-    hospital: {
-      id: 1,
-      name: 'City General Hospital',
-    },
-  },
-  {
-    id: 2,
-    patientId: 1,
-    doctorId: 2,
-    hospitalId: 1,
-    appointmentDate: '2025-10-28',
-    appointmentTime: '14:30',
-    department: 'General Medicine',
-    status: 'scheduled',
-    notes: 'Follow-up consultation',
-    doctor: {
-      id: 2,
-      name: 'Dr. Amit Patel',
-      age: 38,
-      gender: 'Male',
-      contact: '+91-9876543211',
-      specializations: 'General Medicine',
-    },
-    hospital: {
-      id: 1,
-      name: 'City General Hospital',
-    },
-  },
-  {
-    id: 3,
-    patientId: 1,
-    doctorId: 1,
-    hospitalId: 1,
-    appointmentDate: '2025-10-15',
-    appointmentTime: '11:00',
-    department: 'Cardiology',
-    status: 'completed',
-    notes: 'ECG test completed',
-    doctor: {
-      id: 1,
-      name: 'Dr. Sarah Johnson',
-      age: 45,
-      gender: 'Female',
-      contact: '+91-9876543210',
-      specializations: 'Cardiology, Internal Medicine',
-    },
-    hospital: {
-      id: 1,
-      name: 'City General Hospital',
-    },
-  },
-  {
-    id: 4,
-    patientId: 1,
-    doctorId: 3,
-    hospitalId: 2,
-    appointmentDate: '2025-10-12',
-    appointmentTime: '09:30',
-    department: 'Orthopedics',
-    status: 'cancelled',
-    notes: 'Patient rescheduled',
-    doctor: {
-      id: 3,
-      name: 'Dr. Priya Sharma',
-      age: 42,
-      gender: 'Female',
-      contact: '+91-9876543212',
-      specializations: 'Orthopedics',
-    },
-    hospital: {
-      id: 2,
-      name: 'Metro Medical Center',
-    },
-  },
-];
-
-const MOCK_DOCTORS = [
-  { id: 1, name: 'Dr. Sarah Johnson', specialization: 'Cardiology' },
-  { id: 2, name: 'Dr. Amit Patel', specialization: 'General Medicine' },
-  { id: 3, name: 'Dr. Priya Sharma', specialization: 'Orthopedics' },
-  { id: 4, name: 'Dr. Rajesh Kumar', specialization: 'Neurology' },
-];
-
-const MOCK_HOSPITALS = [
-  { id: 1, name: 'City General Hospital' },
-  { id: 2, name: 'Metro Medical Center' },
-  { id: 3, name: 'Sunrise Clinic' },
-];
+import {
+  MOCK_APPOINTMENTS,
+  MOCK_DOCTORS,
+  MOCK_HOSPITALS,
+  getDoctorById,
+  getHospitalById,
+} from '@/lib/mockData';
 
 const DEPARTMENTS = [
   'Cardiology',
@@ -233,8 +131,8 @@ export default function AppointmentsPage() {
   };
 
   const handleCreateAppointment = () => {
-    const doctor = MOCK_DOCTORS.find((d) => d.id.toString() === newAppointment.doctorId);
-    const hospital = MOCK_HOSPITALS.find((h) => h.id.toString() === newAppointment.hospitalId);
+    const doctor = getDoctorById(parseInt(newAppointment.doctorId, 10));
+    const hospital = getHospitalById(parseInt(newAppointment.hospitalId, 10));
 
     if (!doctor || !hospital) {
       alert('Please select a doctor and hospital');
@@ -257,7 +155,7 @@ export default function AppointmentsPage() {
         age: 40,
         gender: 'Unknown',
         contact: '+91-9876543210',
-        specializations: doctor.specialization,
+  specializations: doctor.specializations,
       },
       hospital: {
         id: hospital.id,
@@ -285,8 +183,9 @@ export default function AppointmentsPage() {
   );
 
   return (
-    <DashboardLayout>
-      <Grid container spacing={3}>
+    <>
+      <DashboardLayout>
+        <Grid container spacing={3}>
         {/* Page Header */}
         <Grid size={{ xs: 12 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
@@ -490,7 +389,7 @@ export default function AppointmentsPage() {
                 >
                   {MOCK_DOCTORS.map((doctor) => (
                     <MenuItem key={doctor.id} value={doctor.id}>
-                      {doctor.name} - {doctor.specialization}
+                      {doctor.name} - {doctor.specializations}
                     </MenuItem>
                   ))}
                 </TextField>
@@ -588,6 +487,7 @@ export default function AppointmentsPage() {
           </Button>
         </DialogActions>
       </Dialog>
-    </DashboardLayout>
+      </DashboardLayout>
+    </>
   );
 }

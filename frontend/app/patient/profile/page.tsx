@@ -41,55 +41,42 @@ import {
 } from '@mui/icons-material';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import type { Patient, FamilyContact } from '@/types/patient';
-
-// Mock patient data
-const MOCK_PATIENT: Patient = {
-  id: 1,
-  name: 'Rajesh Kumar',
-  age: 58,
-  gender: 'Male',
-  contact: '+91-9876543210',
-  familyContact: '+91-9876543211',
-  emergency: true,
-  aiAnalysis: 'Patient shows high risk for cardiovascular complications. Regular monitoring recommended.',
-};
-
-// Mock family contacts
-const MOCK_FAMILY_CONTACTS: FamilyContact[] = [
-  {
-    id: 1,
-    patientId: 1,
-    name: 'Priya Kumar',
-    relationship: 'Spouse',
-    contact: '+91-9876543211',
-    isPrimary: true,
-    isEmergencyContact: true,
-  },
-  {
-    id: 2,
-    patientId: 1,
-    name: 'Amit Kumar',
-    relationship: 'Son',
-    contact: '+91-9876543212',
-    isPrimary: false,
-    isEmergencyContact: true,
-  },
-  {
-    id: 3,
-    patientId: 1,
-    name: 'Neha Kumar',
-    relationship: 'Daughter',
-    contact: '+91-9876543213',
-    isPrimary: false,
-    isEmergencyContact: false,
-  },
-];
+import {
+  FALLBACK_PATIENT_ID,
+  getPatientById,
+  getPatientFamilyContacts,
+} from '@/lib/mockData';
 
 export default function ProfilePage() {
-  const [patient, setPatient] = useState<Patient>(MOCK_PATIENT);
-  const [familyContacts, setFamilyContacts] = useState<FamilyContact[]>(MOCK_FAMILY_CONTACTS);
+  const fallbackSnapshot = getPatientById(FALLBACK_PATIENT_ID);
+  const fallbackPatient: Patient = fallbackSnapshot
+    ? {
+        id: fallbackSnapshot.id,
+        name: fallbackSnapshot.name,
+        age: fallbackSnapshot.age,
+        gender: fallbackSnapshot.gender,
+        contact: fallbackSnapshot.contact,
+        familyContact: fallbackSnapshot.familyContact,
+        emergency: fallbackSnapshot.emergency,
+        aiAnalysis: fallbackSnapshot.aiAnalysis,
+      }
+    : {
+        id: FALLBACK_PATIENT_ID,
+        name: 'Demo Patient',
+        age: 0,
+        gender: 'Unknown',
+        contact: 'N/A',
+        familyContact: 'N/A',
+        emergency: false,
+        aiAnalysis: null,
+      };
+
+  const initialFamilyContacts = getPatientFamilyContacts(FALLBACK_PATIENT_ID);
+
+  const [patient, setPatient] = useState<Patient>(fallbackPatient);
+  const [familyContacts, setFamilyContacts] = useState<FamilyContact[]>(initialFamilyContacts);
   const [isEditing, setIsEditing] = useState(false);
-  const [editedPatient, setEditedPatient] = useState<Patient>(MOCK_PATIENT);
+  const [editedPatient, setEditedPatient] = useState<Patient>(fallbackPatient);
   const [openFamilyDialog, setOpenFamilyDialog] = useState(false);
   const [newFamilyContact, setNewFamilyContact] = useState({
     name: '',
@@ -147,8 +134,9 @@ export default function ProfilePage() {
   };
 
   return (
-    <DashboardLayout>
-      <Grid container spacing={3}>
+    <>
+      <DashboardLayout>
+        <Grid container spacing={3}>
         {/* Page Header */}
         <Grid size={{ xs: 12 }}>
           <Typography variant="h4" fontWeight={600} gutterBottom>
@@ -400,13 +388,12 @@ export default function ProfilePage() {
                             )}
                           </Box>
                         }
-                        secondary={
-                          <Box sx={{ mt: 0.5 }}>
-                            <Typography variant="body2" color="text.secondary">
-                              {contact.relationship} • {contact.contact}
-                            </Typography>
-                          </Box>
-                        }
+                        secondary={`${contact.relationship} • ${contact.contact}`}
+                        secondaryTypographyProps={{
+                          variant: 'body2',
+                          color: 'text.secondary',
+                          sx: { mt: 0.5 }
+                        }}
                       />
                       <ListItemSecondaryAction>
                         {!contact.isPrimary && (
@@ -509,6 +496,8 @@ export default function ProfilePage() {
           </Button>
         </DialogActions>
       </Dialog>
-    </DashboardLayout>
+      </DashboardLayout>
+      <AIChat />
+    </>
   );
 }

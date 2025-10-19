@@ -1,7 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Grid,
   Card,
@@ -22,47 +21,64 @@ import WarningIcon from '@mui/icons-material/Warning';
 import PsychologyIcon from '@mui/icons-material/Psychology';
 import LocalHospitalIcon from '@mui/icons-material/LocalHospital';
 import DashboardLayout from '@/components/layout/DashboardLayout';
-import { usePatient, usePatientRecords, usePatientConditions } from '@/lib/hooks/usePatient';
+import { FALLBACK_PATIENT_ID, getPatientById, type PatientSnapshot } from '@/lib/mockData';
 import { formatDate, formatRelativeTime } from '@/lib/utils/formatters';
 
 export default function PatientDashboardPage() {
-  const router = useRouter();
-  const [patientId, setPatientId] = useState<number | null>(null);
+  const [patientId, setPatientId] = useState<number>(FALLBACK_PATIENT_ID);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check auth and get patient ID
-    const authToken = localStorage.getItem('authToken');
-    const storedPatientId = localStorage.getItem('patientId');
+    try {
+      const storedPatientId = window.localStorage.getItem('patientId');
+      const parsedId = storedPatientId ? Number.parseInt(storedPatientId, 10) : NaN;
 
-    if (!authToken) {
-      router.push('/login');
-      return;
+      if (!Number.isNaN(parsedId) && getPatientById(parsedId)) {
+        setPatientId(parsedId);
+      } else {
+        window.localStorage.setItem('patientId', String(FALLBACK_PATIENT_ID));
+      }
+    } catch (error) {
+      // Access to localStorage can fail in private mode; fall back silently.
+      console.warn('Unable to read patientId from storage. Falling back to demo data.', error);
     }
+  }, []);
 
-    if (storedPatientId) {
-      setPatientId(parseInt(storedPatientId));
-    }
-  }, [router]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setLoading(false), 350);
+    return () => window.clearTimeout(timer);
+  }, []);
 
-  const { data: patient, isLoading: loadingPatient, error: patientError } = usePatient(patientId || 0);
-  const { data: records, isLoading: loadingRecords } = usePatientRecords(patientId || 0);
-  const { data: conditions, isLoading: loadingConditions } = usePatientConditions(patientId || 0);
+  const patient = useMemo<PatientSnapshot | undefined>(() => {
+    return getPatientById(patientId) ?? getPatientById(FALLBACK_PATIENT_ID);
+  }, [patientId]);
 
-  if (!patientId) {
+  const activeConditions = useMemo(() => {
+    return (patient?.conditions ?? []).filter((condition) => !condition.endDate);
+  }, [patient]);
+
+  const latestRecords = useMemo(() => {
+    return (patient?.records ?? [])
+      .slice()
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [patient]);
+
+  if (!patient) {
     return (
       <DashboardLayout>
         <Box sx={{ textAlign: 'center', py: 8 }}>
-          <Typography>Loading...</Typography>
+          <Alert severity="error">Unable to load patient overview.</Alert>
         </Box>
       </DashboardLayout>
     );
   }
 
   return (
-    <DashboardLayout>
-      <Grid container spacing={3}>
+    <>
+      <DashboardLayout>
+        <Grid container spacing={3}>
         {/* Emergency Alert Banner */}
-        {patient?.emergency && (
+        {patient.emergency && (
           <Grid size={{ xs: 12 }}>
             <Alert
               severity="error"
@@ -82,14 +98,12 @@ export default function PatientDashboardPage() {
         <Grid size={{ xs: 12, md: 4 }}>
           <Card sx={{ height: '100%', borderRadius: 3 }}>
             <CardContent>
-              {loadingPatient ? (
+              {loading ? (
                 <>
                   <Skeleton variant="circular" width={80} height={80} sx={{ mx: 'auto', mb: 2 }} />
                   <Skeleton variant="text" height={40} />
                   <Skeleton variant="text" height={30} />
                 </>
-              ) : patientError ? (
-                <Alert severity="error">Failed to load patient data</Alert>
               ) : (
                 <Box sx={{ textAlign: 'center' }}>
                   <Avatar
@@ -98,33 +112,45 @@ export default function PatientDashboardPage() {
                       height: 100,
                       mx: 'auto',
                       mb: 2,
-                      bgcolor: patient?.emergency ? 'error.main' : 'primary.main',
+                      bgcolor: patient.emergency ? 'error.main' : 'primary.main',
                       fontSize: '2.5rem',
                     }}
                   >
-                    {patient?.name?.[0]?.toUpperCase() || 'P'}
+                    {patient.name?.[0]?.toUpperCase() || 'P'}
                   </Avatar>
 
                   <Typography variant="h5" fontWeight={600} gutterBottom>
-                    {patient?.name || 'Unknown Patient'}
+                    {patient.name || 'Unknown Patient'}
                   </Typography>
 
-                  <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, mb: 2 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, mb: 2, flexWrap: 'wrap' }}>
                     <Chip
-                      label={`${patient?.age || 0} years`}
+                      label={`${patient.age} years`}
                       size="small"
                       color="primary"
                       variant="outlined"
                     />
                     <Chip
-                      label={patient?.gender || 'Unknown'}
+                      label={patient.gender}
+                      size="small"
+                      color="primary"
+                      variant="outlined"
+                    />
+                    <Chip
+                      label={`Blood ${patient.bloodType}`}
+                      size="small"
+                      color="primary"
+                      variant="outlined"
+                    />
+                    <Chip
+                      label={patient.occupation}
                       size="small"
                       color="primary"
                       variant="outlined"
                     />
                   </Box>
 
-                  {patient?.emergency && (
+                  {patient.emergency && (
                     <Chip
                       icon={<WarningIcon />}
                       label="EMERGENCY"
@@ -135,18 +161,34 @@ export default function PatientDashboardPage() {
 
                   <Divider sx={{ my: 2 }} />
 
-                  <Box sx={{ textAlign: 'left' }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
+                  <Box sx={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <PersonIcon sx={{ mr: 1, color: 'text.secondary', fontSize: 20 }} />
+                      <Typography variant="body2" color="text.secondary">
+                        {patient.address}
+                      </Typography>
+                    </Box>
+
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
                       <PhoneIcon sx={{ mr: 1, color: 'text.secondary', fontSize: 20 }} />
                       <Typography variant="body2" color="text.secondary">
-                        {patient?.contact || 'No contact'}
+                        {patient.contact}
                       </Typography>
                     </Box>
 
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
                       <PersonIcon sx={{ mr: 1, color: 'text.secondary', fontSize: 20 }} />
                       <Typography variant="body2" color="text.secondary">
-                        Family: {patient?.familyContact || 'No contact'}
+                        Family: {patient.familyContact}
+                      </Typography>
+                    </Box>
+
+                    <Box>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.25 }}>
+                        Insurance
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {patient.insuranceProvider} • {patient.insuranceId}
                       </Typography>
                     </Box>
                   </Box>
@@ -167,13 +209,13 @@ export default function PatientDashboardPage() {
                 </Typography>
               </Box>
 
-              {loadingPatient ? (
+              {loading ? (
                 <>
                   <Skeleton variant="text" height={30} />
                   <Skeleton variant="text" height={30} />
                   <Skeleton variant="rectangular" height={100} sx={{ mt: 2 }} />
                 </>
-              ) : patient?.aiAnalysis ? (
+              ) : patient.aiAnalysis ? (
                 <Paper
                   sx={{
                     p: 3,
@@ -187,9 +229,7 @@ export default function PatientDashboardPage() {
                   </Typography>
                 </Paper>
               ) : (
-                <Alert severity="info">
-                  No AI analysis available for this patient yet.
-                </Alert>
+                <Alert severity="info">No AI analysis available for this patient yet.</Alert>
               )}
             </CardContent>
           </Card>
@@ -203,14 +243,14 @@ export default function PatientDashboardPage() {
                 Current Conditions
               </Typography>
 
-              {loadingConditions ? (
+              {loading ? (
                 <>
                   <Skeleton variant="rectangular" height={60} sx={{ mb: 1 }} />
                   <Skeleton variant="rectangular" height={60} />
                 </>
-              ) : conditions && conditions.length > 0 ? (
+              ) : activeConditions.length > 0 ? (
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                  {conditions.filter(c => !c.endDate).slice(0, 5).map((condition) => (
+                  {activeConditions.slice(0, 5).map((condition) => (
                     <Paper
                       key={condition.id}
                       sx={{
@@ -224,7 +264,7 @@ export default function PatientDashboardPage() {
                         {condition.condition}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
-                        Since: {formatDate(condition.startDate, 'PP')}
+                        Since: {formatDate(condition.startDate, 'long')}
                       </Typography>
                     </Paper>
                   ))}
@@ -244,14 +284,14 @@ export default function PatientDashboardPage() {
                 Recent Medical Records
               </Typography>
 
-              {loadingRecords ? (
+              {loading ? (
                 <>
                   <Skeleton variant="rectangular" height={80} sx={{ mb: 1 }} />
                   <Skeleton variant="rectangular" height={80} />
                 </>
-              ) : records && records.length > 0 ? (
+              ) : latestRecords.length > 0 ? (
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                  {records.slice(0, 3).map((record) => (
+                  {latestRecords.slice(0, 3).map((record) => (
                     <Paper
                       key={record.id}
                       sx={{
@@ -267,9 +307,7 @@ export default function PatientDashboardPage() {
                           {formatRelativeTime(record.date)}
                         </Typography>
                       </Box>
-                      <Typography variant="body2">
-                        {record.description}
-                      </Typography>
+                      <Typography variant="body2">{record.description}</Typography>
                     </Paper>
                   ))}
                 </Box>
@@ -280,6 +318,7 @@ export default function PatientDashboardPage() {
           </Card>
         </Grid>
       </Grid>
-    </DashboardLayout>
+      </DashboardLayout>
+    </>
   );
 }

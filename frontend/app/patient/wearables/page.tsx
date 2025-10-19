@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Box,
   Card,
@@ -13,8 +13,7 @@ import {
   Button,
   Skeleton,
   Paper,
-  IconButton,
-  Tooltip,
+  AlertColor,
 } from '@mui/material';
 import {
   Favorite as HeartIcon,
@@ -41,7 +40,6 @@ import {
   Legend,
 } from 'recharts';
 import DashboardLayout from '@/components/layout/DashboardLayout';
-import { useLatestWearables, usePatientWearables } from '@/lib/hooks/useWearables';
 import { formatDate } from '@/lib/utils/formatters';
 
 const COLORS = {
@@ -53,89 +51,175 @@ const COLORS = {
 
 const PIE_COLORS = ['#1976d2', '#2e7d32', '#f57c00', '#dc004e'];
 
-export default function WearablesPage() {
-  const patientId = parseInt(process.env.NEXT_PUBLIC_DEMO_PATIENT_ID || '1');
-  const { data: latestDataArray, isLoading: loadingLatest, refetch } = useLatestWearables(patientId);
-  const { data: historicalData, isLoading: loadingHistory } = usePatientWearables(patientId);
+type WearableSnapshot = {
+  timestamp: string;
+  heartRate: number;
+  oxygenLevel: number;
+  temperature: number;
+  steps: number;
+};
 
+type WearableHistoryPoint = WearableSnapshot;
+
+type HeartRateStatus = {
+  status: string;
+  color: 'warning' | 'error' | 'success';
+  severity: AlertColor;
+};
+
+type OxygenStatus = {
+  status: string;
+  color: 'error' | 'success' | 'default';
+  severity: AlertColor;
+};
+
+const MOCK_LATEST_METRICS: WearableSnapshot = {
+  timestamp: '2025-10-19T10:30:00Z',
+  heartRate: 88,
+  oxygenLevel: 96,
+  temperature: 98.6,
+  steps: 6485,
+};
+
+const MOCK_HISTORY: WearableHistoryPoint[] = [
+  { timestamp: '2025-10-19T06:00:00Z', heartRate: 74, oxygenLevel: 98, temperature: 98.1, steps: 1450 },
+  { timestamp: '2025-10-19T07:00:00Z', heartRate: 78, oxygenLevel: 97, temperature: 98.2, steps: 2100 },
+  { timestamp: '2025-10-19T08:00:00Z', heartRate: 82, oxygenLevel: 97, temperature: 98.3, steps: 2740 },
+  { timestamp: '2025-10-19T09:00:00Z', heartRate: 86, oxygenLevel: 96, temperature: 98.5, steps: 4100 },
+  { timestamp: '2025-10-19T09:30:00Z', heartRate: 90, oxygenLevel: 96, temperature: 98.4, steps: 5120 },
+  { timestamp: '2025-10-19T10:00:00Z', heartRate: 92, oxygenLevel: 95, temperature: 98.7, steps: 5980 },
+  { timestamp: '2025-10-19T10:15:00Z', heartRate: 89, oxygenLevel: 96, temperature: 98.6, steps: 6205 },
+  { timestamp: '2025-10-19T10:30:00Z', heartRate: 88, oxygenLevel: 96, temperature: 98.6, steps: 6485 },
+  { timestamp: '2025-10-19T10:45:00Z', heartRate: 87, oxygenLevel: 95, temperature: 98.5, steps: 6710 },
+  { timestamp: '2025-10-19T11:00:00Z', heartRate: 85, oxygenLevel: 96, temperature: 98.4, steps: 6890 },
+  { timestamp: '2025-10-19T11:15:00Z', heartRate: 83, oxygenLevel: 97, temperature: 98.3, steps: 7025 },
+  { timestamp: '2025-10-19T11:30:00Z', heartRate: 84, oxygenLevel: 97, temperature: 98.3, steps: 7240 },
+];
+
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+const jitter = (value: number, delta: number) => {
+  const offset = (Math.random() * 2 - 1) * delta;
+  return value + offset;
+};
+
+export default function WearablesPage() {
+  const [latestData, setLatestData] = useState<WearableSnapshot | null>(null);
+  const [historicalData, setHistoricalData] = useState<WearableHistoryPoint[]>([]);
+  const [loadingLatest, setLoadingLatest] = useState(true);
+  const [loadingHistory, setLoadingHistory] = useState(true);
   const [syncing, setSyncing] = useState(false);
 
-  // Extract first element from array
-  const latestData = latestDataArray && latestDataArray.length > 0 ? latestDataArray[0] : null;
-
-  // Auto-refresh every 30 seconds
   useEffect(() => {
-    const interval = setInterval(() => {
-      refetch();
-    }, 30000);
+    const timer = window.setTimeout(() => {
+      setLatestData(MOCK_LATEST_METRICS);
+      setHistoricalData(MOCK_HISTORY);
+      setLoadingLatest(false);
+      setLoadingHistory(false);
+    }, 350);
 
-    return () => clearInterval(interval);
-  }, [refetch]);
+    return () => window.clearTimeout(timer);
+  }, []);
 
-  const handleSync = async () => {
+  const handleSync = () => {
     setSyncing(true);
-    await refetch();
-    setTimeout(() => setSyncing(false), 1000);
+    window.setTimeout(() => {
+      setLatestData((prev) => {
+        const baseline = prev ?? MOCK_LATEST_METRICS;
+        const updated: WearableSnapshot = {
+          timestamp: new Date().toISOString(),
+          heartRate: Math.round(clamp(jitter(baseline.heartRate, 6), 58, 120)),
+          oxygenLevel: Math.round(clamp(jitter(baseline.oxygenLevel, 1.5), 92, 100)),
+          temperature: parseFloat(clamp(jitter(baseline.temperature, 0.3), 97.2, 100.2).toFixed(1)),
+          steps: Math.round(clamp(baseline.steps + Math.random() * 450 + 120, 0, 15000)),
+        };
+        return updated;
+      });
+
+      setHistoricalData((prev) => {
+        const reference = prev.length > 0 ? prev[prev.length - 1] : MOCK_LATEST_METRICS;
+        const nextPoint: WearableHistoryPoint = {
+          timestamp: new Date().toISOString(),
+          heartRate: Math.round(clamp(jitter(reference.heartRate, 5), 58, 120)),
+          oxygenLevel: Math.round(clamp(jitter(reference.oxygenLevel, 1.2), 92, 100)),
+          temperature: parseFloat(clamp(jitter(reference.temperature, 0.25), 97.0, 100.2).toFixed(1)),
+          steps: Math.round(clamp(reference.steps + Math.random() * 320 + 75, 0, 15000)),
+        };
+
+        return [...prev.slice(-23), nextPoint];
+      });
+
+      setLoadingLatest(false);
+      setLoadingHistory(false);
+      setSyncing(false);
+    }, 700);
   };
 
   // Get health status
-  const getHeartRateStatus = (hr: number) => {
-    if (hr < 60) return { status: 'Low', color: 'warning', severity: 'warning' as const };
-    if (hr > 100) return { status: 'High', color: 'error', severity: 'error' as const };
-    return { status: 'Normal', color: 'success', severity: 'success' as const };
+  const getHeartRateStatus = (hr: number): HeartRateStatus => {
+    if (hr < 60) return { status: 'Low', color: 'warning', severity: 'warning' };
+    if (hr > 100) return { status: 'High', color: 'error', severity: 'error' };
+    return { status: 'Normal', color: 'success', severity: 'success' };
   };
 
-  const getOxygenStatus = (o2: number) => {
-    if (o2 < 95) return { status: 'Low', color: 'error', severity: 'error' as const };
-    if (o2 >= 95 && o2 <= 100) return { status: 'Normal', color: 'success', severity: 'success' as const };
-    return { status: 'Unknown', color: 'default', severity: 'info' as const };
+  const getOxygenStatus = (o2: number): OxygenStatus => {
+    if (o2 < 95) return { status: 'Low', color: 'error', severity: 'error' };
+    if (o2 >= 95 && o2 <= 100) return { status: 'Normal', color: 'success', severity: 'success' };
+    return { status: 'Unknown', color: 'default', severity: 'info' };
   };
 
-  // Prepare chart data
-  const prepareChartData = () => {
-    if (!historicalData || historicalData.length === 0) return [];
-    
+  const chartData = useMemo(() => {
     return historicalData.slice(-20).map((reading) => ({
-      time: new Date(reading.timestamp).toLocaleTimeString('en-US', { 
-        hour: '2-digit', 
-        minute: '2-digit' 
+      time: new Date(reading.timestamp).toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
       }),
       heartRate: reading.heartRate,
       oxygen: reading.oxygenLevel,
       timestamp: reading.timestamp,
     }));
-  };
+  }, [historicalData]);
 
-  const preparePieData = () => {
-    if (!latestData) return [];
-    
-    return [
-      { name: 'Heart Rate', value: latestData.heartRate || 0 },
-      { name: 'Oxygen Level', value: latestData.oxygenLevel || 0 },
-      { name: 'Temperature', value: latestData.temperature ? latestData.temperature * 10 : 0 },
-      { name: 'Steps (100s)', value: latestData.steps ? Math.floor(latestData.steps / 100) : 0 },
-    ];
-  };
+  const pieData = useMemo(
+    () =>
+      latestData
+        ? [
+            { name: 'Heart Rate', value: latestData.heartRate },
+            { name: 'Oxygen Level', value: latestData.oxygenLevel },
+            { name: 'Temperature', value: Math.round(latestData.temperature * 10) },
+            { name: 'Steps (100s)', value: Math.round(latestData.steps / 100) },
+          ]
+        : [],
+    [latestData]
+  );
 
-  const chartData = prepareChartData();
-  const pieData = preparePieData();
-
-  // Calculate trends
-  const calculateTrend = (data: typeof chartData, key: 'heartRate' | 'oxygen') => {
+  const calculateTrend = (
+    data: Array<{ heartRate?: number | null; oxygen?: number | null }>,
+    key: 'heartRate' | 'oxygen'
+  ) => {
     if (data.length < 2) return null;
     const recent = data.slice(-5);
-    const avg = recent.reduce((sum, d) => sum + (d[key] || 0), 0) / recent.length;
     const prev = data.slice(-10, -5);
-    if (prev.length === 0) return null;
-    const prevAvg = prev.reduce((sum, d) => sum + (d[key] || 0), 0) / prev.length;
-    return avg > prevAvg ? 'up' : avg < prevAvg ? 'down' : 'stable';
+    if (recent.length === 0 || prev.length === 0) return null;
+
+    const avg = recent.reduce((sum, entry) => sum + (entry[key] ?? 0), 0) / recent.length;
+    const prevAvg = prev.reduce((sum, entry) => sum + (entry[key] ?? 0), 0) / prev.length;
+
+    if (avg > prevAvg + 0.5) return 'up' as const;
+    if (avg < prevAvg - 0.5) return 'down' as const;
+    return 'stable' as const;
   };
 
-  const hrTrend = calculateTrend(chartData, 'heartRate');
-  const o2Trend = calculateTrend(chartData, 'oxygen');
+  const hrTrend = useMemo(() => calculateTrend(chartData, 'heartRate'), [chartData]);
+  const o2Trend = useMemo(() => calculateTrend(chartData, 'oxygen'), [chartData]);
+
+  const heartStatus = latestData?.heartRate ? getHeartRateStatus(latestData.heartRate) : null;
+  const oxygenStatus = latestData?.oxygenLevel ? getOxygenStatus(latestData.oxygenLevel) : null;
+  const heartStatusLabel = heartStatus?.status ?? 'Normal';
 
   return (
-    <DashboardLayout>
+    <>
+      <DashboardLayout>
       <Grid container spacing={3}>
         {/* Page Header */}
         <Grid size={{ xs: 12 }}>
@@ -165,11 +249,11 @@ export default function WearablesPage() {
             {(latestData.heartRate && (latestData.heartRate < 60 || latestData.heartRate > 100)) && (
               <Grid size={{ xs: 12 }}>
                 <Alert 
-                  severity={getHeartRateStatus(latestData.heartRate).severity}
+                  severity={heartStatus?.severity ?? 'warning'}
                   icon={<WarningIcon />}
                 >
                   <AlertTitle>Heart Rate Alert</AlertTitle>
-                  Your heart rate is {getHeartRateStatus(latestData.heartRate).status.toLowerCase()} at {latestData.heartRate} BPM. 
+                  Your heart rate is {heartStatusLabel.toLowerCase()} at {latestData.heartRate} BPM. 
                   {latestData.heartRate < 60 && ' Consider consulting your doctor if this persists.'}
                   {latestData.heartRate > 100 && ' Consider resting and staying hydrated.'}
                 </Alert>
@@ -215,8 +299,8 @@ export default function WearablesPage() {
                   </Typography>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Chip
-                      label={latestData?.heartRate ? getHeartRateStatus(latestData.heartRate).status : 'N/A'}
-                      color={latestData?.heartRate ? getHeartRateStatus(latestData.heartRate).color : 'default'}
+                      label={heartStatus?.status ?? 'N/A'}
+                      color={heartStatus?.color ?? 'default'}
                       size="small"
                     />
                     {hrTrend === 'up' && <TrendingUpIcon fontSize="small" color="error" />}
@@ -255,8 +339,8 @@ export default function WearablesPage() {
                   </Typography>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Chip
-                      label={latestData?.oxygenLevel ? getOxygenStatus(latestData.oxygenLevel).status : 'N/A'}
-                      color={latestData?.oxygenLevel ? getOxygenStatus(latestData.oxygenLevel).color : 'default'}
+                      label={oxygenStatus?.status ?? 'N/A'}
+                      color={oxygenStatus?.color ?? 'default'}
                       size="small"
                     />
                     {o2Trend === 'up' && <TrendingUpIcon fontSize="small" color="success" />}
@@ -391,7 +475,10 @@ export default function WearablesPage() {
                       cx="50%"
                       cy="50%"
                       labelLine={false}
-                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                      label={(props) => {
+                        const { name, percent } = props as { name?: string; percent?: number };
+                        return `${name ?? 'Metric'}: ${(((percent ?? 0) * 100)).toFixed(0)}%`;
+                      }}
                       outerRadius={80}
                       fill="#8884d8"
                       dataKey="value"
@@ -547,5 +634,6 @@ export default function WearablesPage() {
         </Grid>
       </Grid>
     </DashboardLayout>
+    </>
   );
 }

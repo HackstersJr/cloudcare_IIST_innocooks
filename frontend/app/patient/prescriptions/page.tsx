@@ -34,99 +34,7 @@ import {
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { formatDate } from '@/lib/utils/formatters';
 import type { Prescription } from '@/types/patient';
-
-// Mock prescriptions data
-const MOCK_PRESCRIPTIONS: Prescription[] = [
-  {
-    id: 1,
-    patientId: 1,
-    medication: 'Amlodipine',
-    dosage: '5mg',
-    startDate: '2025-10-01T00:00:00Z',
-    endDate: '2025-11-01T00:00:00Z',
-  },
-  {
-    id: 2,
-    patientId: 1,
-    medication: 'Metformin',
-    dosage: '500mg',
-    startDate: '2025-09-15T00:00:00Z',
-    endDate: '2025-12-15T00:00:00Z',
-  },
-  {
-    id: 3,
-    patientId: 1,
-    medication: 'Aspirin',
-    dosage: '75mg',
-    startDate: '2025-10-10T00:00:00Z',
-    endDate: null,
-  },
-  {
-    id: 4,
-    patientId: 1,
-    medication: 'Atorvastatin',
-    dosage: '10mg',
-    startDate: '2025-09-20T00:00:00Z',
-    endDate: null,
-  },
-  {
-    id: 5,
-    patientId: 1,
-    medication: 'Omeprazole',
-    dosage: '20mg',
-    startDate: '2025-08-01T00:00:00Z',
-    endDate: '2025-09-01T00:00:00Z',
-  },
-  {
-    id: 6,
-    patientId: 1,
-    medication: 'Losartan',
-    dosage: '50mg',
-    startDate: '2025-07-15T00:00:00Z',
-    endDate: '2025-08-15T00:00:00Z',
-  },
-];
-
-// Additional prescription details (mock)
-const PRESCRIPTION_DETAILS: Record<number, {
-  frequency: string;
-  instructions: string;
-  prescribedBy: string;
-  refillsRemaining?: number;
-}> = {
-  1: {
-    frequency: 'Once daily',
-    instructions: 'Take in the morning with food',
-    prescribedBy: 'Dr. Sarah Johnson',
-    refillsRemaining: 2,
-  },
-  2: {
-    frequency: 'Twice daily',
-    instructions: 'Take with meals',
-    prescribedBy: 'Dr. Sarah Johnson',
-    refillsRemaining: 3,
-  },
-  3: {
-    frequency: 'Once daily',
-    instructions: 'Take after breakfast',
-    prescribedBy: 'Dr. Sarah Johnson',
-  },
-  4: {
-    frequency: 'Once daily at bedtime',
-    instructions: 'Take before sleep',
-    prescribedBy: 'Dr. Sarah Johnson',
-  },
-  5: {
-    frequency: 'Once daily',
-    instructions: 'Take 30 minutes before breakfast',
-    prescribedBy: 'Dr. Amit Patel',
-  },
-  6: {
-    frequency: 'Once daily',
-    instructions: 'Take in the morning',
-    prescribedBy: 'Dr. Amit Patel',
-  },
-};
+import { MOCK_PRESCRIPTIONS, MOCK_PRESCRIPTION_DETAILS } from '@/lib/mockData';
 
 export default function PrescriptionsPage() {
   const [activeTab, setActiveTab] = useState(0);
@@ -174,8 +82,9 @@ export default function PrescriptionsPage() {
   const activePrescriptions = getActivePrescriptions();
 
   return (
-    <DashboardLayout>
-      <Grid container spacing={3}>
+    <>
+      <DashboardLayout>
+        <Grid container spacing={3}>
         {/* Page Header */}
         <Grid size={{ xs: 12 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
@@ -295,7 +204,7 @@ export default function PrescriptionsPage() {
                     </TableHead>
                     <TableBody>
                       {displayedPrescriptions.map((prescription) => {
-                        const details = PRESCRIPTION_DETAILS[prescription.id];
+                        const details = MOCK_PRESCRIPTION_DETAILS[prescription.id];
                         const isActive = isActivePrescription(prescription);
 
                         return (
@@ -368,8 +277,8 @@ export default function PrescriptionsPage() {
             Prescriptions (Mobile View)
           </Typography>
           <Grid container spacing={2}>
-            {displayedPrescriptions.map((prescription) => {
-              const details = PRESCRIPTION_DETAILS[prescription.id];
+              {displayedPrescriptions.map((prescription) => {
+                const details = MOCK_PRESCRIPTION_DETAILS[prescription.id];
               const isActive = isActivePrescription(prescription);
 
               return (
@@ -503,6 +412,7 @@ export default function PrescriptionsPage() {
           </Card>
         </Grid>
       </Grid>
-    </DashboardLayout>
+      </DashboardLayout>
+    </>
   );
 }
