@@ -22,6 +22,7 @@ import PsychologyIcon from '@mui/icons-material/Psychology';
 import LocalHospitalIcon from '@mui/icons-material/LocalHospital';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { FALLBACK_PATIENT_ID, getPatientById, type PatientSnapshot } from '@/lib/mockData';
+import { usePatient, usePatientRecords, usePatientConditions } from '@/lib/hooks/usePatient';
 import { formatDate, formatRelativeTime } from '@/lib/utils/formatters';
 
 export default function PatientDashboardPage() {
@@ -49,21 +50,25 @@ export default function PatientDashboardPage() {
     return () => window.clearTimeout(timer);
   }, []);
 
-  const patient = useMemo<PatientSnapshot | undefined>(() => {
-    return getPatientById(patientId) ?? getPatientById(FALLBACK_PATIENT_ID);
-  }, [patientId]);
+  // Use React Query hooks to load patient data
+  const { data: patient, isLoading: loadingPatient, error: patientError } = usePatient(patientId || 0, !!patientId);
+  const { data: records, isLoading: loadingRecords } = usePatientRecords(patientId || 0, !!patientId);
+  const { data: conditions, isLoading: loadingConditions } = usePatientConditions(patientId || 0, !!patientId);
+
+  // The API 'patient' type is slimmer; coerce/merge with our local PatientSnapshot shape
+  const patientData: PatientSnapshot | undefined = (patient as unknown as PatientSnapshot) ?? getPatientById(patientId) ?? getPatientById(FALLBACK_PATIENT_ID);
 
   const activeConditions = useMemo(() => {
-    return (patient?.conditions ?? []).filter((condition) => !condition.endDate);
-  }, [patient]);
+    return (conditions ?? patientData?.conditions ?? []).filter((condition) => !condition.endDate);
+  }, [conditions, patientData]);
 
   const latestRecords = useMemo(() => {
-    return (patient?.records ?? [])
+    return (records ?? patientData?.records ?? [])
       .slice()
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [patient]);
+  }, [records, patientData]);
 
-  if (!patient) {
+  if (!patientData) {
     return (
       <DashboardLayout>
         <Box sx={{ textAlign: 'center', py: 8 }}>
@@ -78,7 +83,7 @@ export default function PatientDashboardPage() {
       <DashboardLayout>
         <Grid container spacing={3}>
         {/* Emergency Alert Banner */}
-        {patient.emergency && (
+        {patientData.emergency && (
           <Grid size={{ xs: 12 }}>
             <Alert
               severity="error"
@@ -112,45 +117,25 @@ export default function PatientDashboardPage() {
                       height: 100,
                       mx: 'auto',
                       mb: 2,
-                      bgcolor: patient.emergency ? 'error.main' : 'primary.main',
+                      bgcolor: patientData?.emergency ? 'error.main' : 'primary.main',
                       fontSize: '2.5rem',
                     }}
                   >
-                    {patient.name?.[0]?.toUpperCase() || 'P'}
+                    {patientData.name?.[0]?.toUpperCase() || 'P'}
                   </Avatar>
 
                   <Typography variant="h5" fontWeight={600} gutterBottom>
-                    {patient.name || 'Unknown Patient'}
+                    {patientData.name || 'Unknown Patient'}
                   </Typography>
 
                   <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, mb: 2, flexWrap: 'wrap' }}>
-                    <Chip
-                      label={`${patient.age} years`}
-                      size="small"
-                      color="primary"
-                      variant="outlined"
-                    />
-                    <Chip
-                      label={patient.gender}
-                      size="small"
-                      color="primary"
-                      variant="outlined"
-                    />
-                    <Chip
-                      label={`Blood ${patient.bloodType}`}
-                      size="small"
-                      color="primary"
-                      variant="outlined"
-                    />
-                    <Chip
-                      label={patient.occupation}
-                      size="small"
-                      color="primary"
-                      variant="outlined"
-                    />
+                    <Chip label={`${patientData.age} years`} size="small" color="primary" variant="outlined" />
+                    <Chip label={patientData.gender} size="small" color="primary" variant="outlined" />
+                    <Chip label={`Blood ${patientData.bloodType}`} size="small" color="primary" variant="outlined" />
+                    <Chip label={patientData.occupation} size="small" color="primary" variant="outlined" />
                   </Box>
 
-                  {patient.emergency && (
+                  {patientData.emergency && (
                     <Chip
                       icon={<WarningIcon />}
                       label="EMERGENCY"
@@ -165,21 +150,21 @@ export default function PatientDashboardPage() {
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
                       <PersonIcon sx={{ mr: 1, color: 'text.secondary', fontSize: 20 }} />
                       <Typography variant="body2" color="text.secondary">
-                        {patient.address}
+                        {patientData.address}
                       </Typography>
                     </Box>
 
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
                       <PhoneIcon sx={{ mr: 1, color: 'text.secondary', fontSize: 20 }} />
                       <Typography variant="body2" color="text.secondary">
-                        {patient.contact}
+                        {patientData.contact}
                       </Typography>
                     </Box>
 
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
                       <PersonIcon sx={{ mr: 1, color: 'text.secondary', fontSize: 20 }} />
                       <Typography variant="body2" color="text.secondary">
-                        Family: {patient.familyContact}
+                        Family: {patientData.familyContact}
                       </Typography>
                     </Box>
 
@@ -188,7 +173,7 @@ export default function PatientDashboardPage() {
                         Insurance
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
-                        {patient.insuranceProvider} • {patient.insuranceId}
+                        {patientData.insuranceProvider} • {patientData.insuranceId}
                       </Typography>
                     </Box>
                   </Box>
@@ -215,7 +200,7 @@ export default function PatientDashboardPage() {
                   <Skeleton variant="text" height={30} />
                   <Skeleton variant="rectangular" height={100} sx={{ mt: 2 }} />
                 </>
-              ) : patient.aiAnalysis ? (
+              ) : patientData.aiAnalysis ? (
                 <Paper
                   sx={{
                     p: 3,
@@ -224,8 +209,8 @@ export default function PatientDashboardPage() {
                     borderRadius: 2,
                   }}
                 >
-                  <Typography variant="body1" sx={{ fontWeight: 500, lineHeight: 1.7 }}>
-                    {patient.aiAnalysis}
+                    <Typography variant="body1" sx={{ fontWeight: 500, lineHeight: 1.7 }}>
+                    {patientData.aiAnalysis}
                   </Typography>
                 </Paper>
               ) : (
@@ -264,7 +249,7 @@ export default function PatientDashboardPage() {
                         {condition.condition}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
-                        Since: {formatDate(condition.startDate, 'long')}
+                        Since: {formatDate(condition.startDate, 'short')}
                       </Typography>
                     </Paper>
                   ))}
